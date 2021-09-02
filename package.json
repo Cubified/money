@@ -2,6 +2,7 @@
   "name": "money",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://cubified.github.io/money/build",
   "dependencies": {
     "@date-io/date-fns": "1.x",
     "@devexpress/dx-core": "^2.7.6",
