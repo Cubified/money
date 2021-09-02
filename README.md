@@ -34,7 +34,7 @@ Simulator:
 
 Breakdown:
 
-![5](https://github.com/Cubified/money/blob/main/screenshots/4.png)
+![5](https://github.com/Cubified/money/blob/main/screenshots/5.png)
 
 ## Building Locally
 
