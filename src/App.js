@@ -296,7 +296,7 @@ class ViewController extends React.Component {
           </Toolbar>
         </AppBar>
         <Drawer variant={this.state.drawer_type} open={this.state.drawer} onClose={this.toggle_drawer} style={{width:'200px'}}>
-          <List style={{display:'flex',flexDirection:'column',height:'100%'}}>
+          <List style={{display:'flex',flexDirection:'column',height:'100%', width:'200px'}}>
             {
               Object.keys(this.props.view_names).map((vn, ind)=>{
                 if(vn === 'hr') return (<hr key={ind} style={{width:'200px'}}/>);
@@ -421,6 +421,11 @@ class Breakdown extends React.Component {
 }
 
 class View extends React.Component {
+  shouldComponentUpdate(nextProps, nextState){
+    if(nextProps.view === this.props.number ||
+       this.props.view === this.props.number) return true;
+    return false;
+  }
   render(){
     return (
       <div style={this.props.view===this.props.number?{}:{display:'none',visibility:'hidden',opacity:'0'}}>
@@ -431,150 +436,267 @@ class View extends React.Component {
 }
 
 /*
- * SETUP VIEW
+ * SUB-VIEWS
  */
-class Setup extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      active_card: 0,
-      card_dialog_open: false,
 
-      name: '',
-      cards: [],
-      credit_score: ''
-    };
-    this.type_first_name = this.type_first_name.bind(this);
-    this.type_credit_score = this.type_credit_score.bind(this);
-    this.add_card = this.add_card.bind(this);
-    this.card_dialog_close = this.card_dialog_close.bind(this);
-  }
-  type_first_name(e){
-    this.setState({
-      active_card: (e.target.value.trim() === '' ? 0 : (this.state.active_card === 0 ? 1 : this.state.active_card)),
-      name: e.target.value.trim()
-    });
-  }
-  type_credit_score(e){
-    this.setState({
-      credit_score: e.target.value
-    });
-  }
-  add_card(){
-    this.setState({
-      card_dialog_open: true
-    });
-  }
-  card_dialog_close(new_card, nickname){
-    let arr = this.state.cards;
-    if(new_card !== undefined){
-      arr.push({...new_card,nickname:nickname||new_card.name,outstanding_debt:0,rewards:0,balance:0});
-      if(new_card.type !== 'Debit' &&
-        (new_card.credit_score > parseInt(this.state.credit_score) ||
-        isNaN(parseInt(this.state.credit_score)))){
-        this.setState({credit_score:new_card.credit.toString()});
-      }
-    }
-    this.setState({
-      cards: arr,
-      card_dialog_open: false,
-      active_card: (arr.length > 0 ? 2 : 1)
-    });
-  }
+class AccountsView extends React.Component {
   render(){
     return (
-      <div style={this.props.visible ? {} : {display:'none',visibility:'hidden',opacity:'0'}}>
-        <div className="hero">
-          <div>
-            <Card variant="outlined" className="padded-card">
-              <CardContent>
-                <Typography variant="h2" gutterBottom>
-                  Money
-                </Typography>
-                <Typography variant="h6" gutterBottom>
-                  Keep tabs on how your money moves.
-                </Typography>
+      <>
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Welcome back {this.props.name}, here's your money at a glance:</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Grid container justifyContent="center" spacing={2}>
+              <QuickLook label="Total Assets" value={format_money(this.props.total_assets)} />
+              <QuickLook label="Outstanding Debt" value={format_money(this.props.outstanding_debt)} />
+            </Grid>
+            <br />
+            <Grid container justifyContent="center" spacing={2}>
+              <QuickLook label="Gross Inflow" value={format_money(this.props.gross_inflow)} />
+              <QuickLook label="Gross Outflow" value={format_money(this.props.gross_outflow)} />
+            </Grid>
+            <br />
+            <br />
+            <Grid container justifyContent="center" spacing={2}>
+              <Button variant="outlined" color="primary" onClick={()=>{this.props.change_view('Transactions');this.props.add_new_transaction()}}>Add a Transaction</Button>
+              <span>&nbsp;&nbsp;</span>
+              <Button variant="outlined" color="secondary" onClick={this.props.open_card_dialog}>Add an Account</Button>
+            </Grid>
+          </Grid>
+        </Grid>
+        <br />
+        <hr />
+        <br />
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your accounts:</Typography>
+        {
+          this.props.card_data.map((card, ind)=>{
+            return (
+              <div key={ind}>
+                <Card className="full-width media-card">
+                  <CardMedia image={card.image} className="media-card-image" />
+                  <CardContent className="media-card-text">
+                    <Typography variant="overline">
+                      {card.issuer}
+                    </Typography>
+                    <Typography variant="h5" gutterBottom>
+                      {card.nickname}
+                    </Typography>
+                    {
+                      (card.type === 'Debit' ? (
+                        <Typography variant="subtitle1">
+                          Current balance: {format_money(card.balance)}
+                        </Typography>
+                      ) : (
+                        <Typography variant="subtitle1">
+                          Outstanding debt: {format_money(card.outstanding_debt)}
+                          <br />
+                          Total rewards: {format_money(card.rewards)}
+                        </Typography>
+                      ))
+                    }
+                  </CardContent>
+                  <CardActions>
+                    <IconButton onClick={()=>{this.props.remove_card(card, ind)}}>
+                      <TrashIcon />
+                    </IconButton>
+                  </CardActions>
+                </Card>
                 <br />
-                <a href="#setup-start" className="no-underline">
-                  <Button variant="outlined" color="primary" className="full-width">Get started</Button>
-                </a>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+            );
+          })
+        }
+        <Button variant="contained" color="primary" fullWidth onClick={this.props.open_card_dialog}>Add Account</Button>
         <br />
+        <hr />
         <br />
-        <Container maxWidth="sm" id="setup-start">
-          <Card className="padded-card">
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                First things first:
-              </Typography>
-              <TextField label="What's your first name?" variant="outlined" fullWidth onChange={this.type_first_name} />
-            </CardContent>
-          </Card>
-          <br />
-          <hr />
-          <br />
-          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                What accounts do you have?
-              </Typography>
-              <br />
-              {
-                this.state.cards.map((item, i)=>{
-                  return (
-                    <div key={i}>
-                      <Card variant="outlined" className="full-width media-card">
-                        <CardMedia image={item.image} className="media-card-image" />
-                        <CardContent className="media-card-text">
-                          <Typography variant="subtitle1">
-                            {item.issuer}
-                          </Typography>
-                          <Typography variant="h5" gutterBottom>
-                            {item.nickname}
-                          </Typography>
-                          <Typography variant="subtitle1">
-                            Annual fee:  ${item.fee}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                      <br />
-                    </div>
-                  );
-                })
-              }
-              <br />
-              <Button variant="contained" color="secondary" className="full-width" onClick={this.add_card}>Add account</Button>
-              <AddCardDialog open={this.state.card_dialog_open} onClose={this.card_dialog_close} existing_cards={this.state.cards} />
-            </CardContent>
-          </Card>
-          <br />
-          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                What's your credit score?
-              </Typography>
-              <TextField label="Optional" variant="outlined" fullWidth value={this.state.credit_score} onChange={this.type_credit_score} />
-            </CardContent>
-          </Card>
-          <br />
-          <hr />
-          <br />
-          <Button variant="contained" color="primary" fullWidth className="opacity-transition" style={this.state.active_card >= 2 ? {} : {opacity:'0.5', pointerEvents:'none'}} onClick={()=>{this.props.store_cards(this.state.cards);this.props.next_view({name:this.state.name})}}>Go!</Button>
-          <br />
-          <br />
-        </Container>
-      </div>
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Spending breakdown:</Typography>
+        <Paper square>
+          <Tabs value={this.props.spend_tab} onChange={this.props.change_spend_tab} variant="fullWidth" centered>
+            <Tab label="Spending by Account" />
+            <Tab label="Spending by Category" />
+          </Tabs>
+        </Paper>
+        <Breakdown data={this.props.spend_tab===0?this.props.card_data:this.props.category_data} x={this.props.spend_tab===0?"nickname":"category"} y="total_spend" title={'Total Spending: '+format_money(Math.abs(this.props.gross_outflow))} />
+        <br />
+      </>
     );
   }
 }
 
-/*
- * CARD SIMULATOR VIEW
- */
-class CardSimulator extends React.Component {
+class TransactionsView extends React.Component {
+  constructor(props){
+    super(props);
+    this.columns = [
+      {
+        field: 'date',
+        headerName: 'Date',
+        type: 'date',
+        width: 150,
+        editable: true,
+        renderCell: (id)=>{
+          let date = new Date(id.row.date);
+          return (
+            <span>{date.getMonth()+1}/{date.getDate()}/{date.getFullYear()}</span>
+          );
+        }
+      },
+      {
+        field: 'name',
+        headerName: 'Name',
+        width: 150,
+        editable: true
+      },
+      {
+        field: 'amount',
+        headerName: 'Amount',
+        type: 'number',
+        width: 150,
+        editable: true,
+        renderCell: (id) => (
+          <span>{format_money(id.row.amount)}</span>
+        )
+      },
+      {
+        field: 'card',
+        headerName: 'Account',
+        width: 150,
+        editable: true,
+        renderCell: (id) => (
+          <Select value={id.row.card} onChange={(e, val)=>{this.props.change_row({...id, value:val.props.value}, e)}} fullWidth>
+            {
+              this.props.card_data.map((card, ind)=>{
+                return (
+                  <MenuItem key={ind} value={card.nickname}>
+                    {card.nickname}
+                  </MenuItem>
+                )
+              })
+            }
+          </Select>
+        )
+      },
+      {
+        field: 'category',
+        headerName: 'Category',
+        width: 150,
+        editable: true,
+        renderCell: (id) => (
+          <Select value={id.row.category} onChange={(e, val)=>{this.props.change_row({...id, value:val.props.value}, e)}} fullWidth>
+            <MenuItem value="Restaurants">Restaurants</MenuItem>
+            <MenuItem value="Travel">Travel</MenuItem>
+            <MenuItem value="Groceries">Groceries</MenuItem>
+            <MenuItem value="Gas">Gas</MenuItem>
+            <MenuItem value="Entertainment">Entertainment</MenuItem>
+            <MenuItem value="Online shopping">Online shopping</MenuItem>
+            <MenuItem value="Other">Other</MenuItem>
+          </Select>
+        )
+      },
+      {
+        field: "action",
+        headerName: "Action",
+        width: 120,
+        renderCell: (id) => (
+          <>
+            <IconButton onClick={() => this.props.remove_transaction(id)}>
+              <TrashIcon />
+            </IconButton>
+          </>
+        )
+      }
+    ];
+  }
+  render(){
+    return (
+      <>
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your transactions at a glance:</Typography>
+        <div style={{height:'500px', width:'100%', background:'white'}}>
+          <DataGrid
+            rows={this.props.rows}
+            columns={this.columns}
+            pageSize={9}
+            onCellEditCommit={this.props.change_row}
+          />
+          <br />
+          <Button variant="contained" color="primary" fullWidth onClick={this.props.add_new_transaction}>Add New</Button>
+        </div>
+      </>
+    );
+  }
+}
+
+class RewardsView extends React.Component {
+  render(){
+    return (
+      <>
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards at a glance:</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Grid container justifyContent="center" alignItems="center" spacing={2}>
+              <QuickLook label="Total Rewards" value={format_money(this.props.total_rewards)} />
+              <QuickLook label="Your Best Performer" value={this.props.best_performer===undefined?'N/A':(<><Typography variant="subtitle1">{this.props.best_performer.issuer}</Typography>{this.props.best_performer.nickname}</>)} />
+            </Grid>
+            <br />
+            <Grid container justifyContent="center" alignItems="center" spacing={2}>
+              <QuickLook label="Outstanding debt" value={format_money(this.props.outstanding_debt)} />
+              <QuickLook label="Recommended next card" value={this.props.recommended_next_card===undefined?'N/A':(<><Typography variant="subtitle1">{this.props.recommended_next_card.issuer}</Typography>{this.props.recommended_next_card.name}</>)} link={this.props.recommended_next_card===undefined?null:this.props.recommended_next_card.link} />
+            </Grid>
+          </Grid>
+        </Grid>
+        <br />
+        <hr />
+        <br />
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your credit cards:</Typography>
+        {
+          this.props.card_data.map((card, ind)=>{
+            if(card.type === 'Debit') return (<div key={ind}></div>);
+            return (
+              <div key={ind}>
+                <Card className="full-width media-card">
+                  <CardMedia image={card.image} className="media-card-image" />
+                  <CardContent className="media-card-text">
+                    <Typography variant="overline">
+                      {card.issuer}
+                    </Typography>
+                    <Typography variant="h5" gutterBottom>
+                      {card.nickname}
+                    </Typography>
+                    <Typography variant="subtitle1">
+                      Total rewards: {format_money(card.rewards)}
+                    </Typography>
+                  </CardContent>
+                  <CardActions>
+                    <IconButton onClick={()=>{this.props.remove_card(card, ind)}}>
+                      <TrashIcon />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+                <br />
+              </div>
+            );
+          })
+        }
+        <Button variant="contained" color="primary" fullWidth onClick={this.props.open_card_dialog}>Add Card</Button>
+        <br />
+        <hr />
+        <br />
+        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards:</Typography>
+        <Paper square>
+          <Tabs value={this.props.card_tab} onChange={this.props.change_card_tab} variant="fullWidth" centered>
+            <Tab label="Rewards by Card" />
+            <Tab label="Rewards by Category" />
+          </Tabs>
+        </Paper>
+        <br />
+        <Breakdown data={this.props.card_tab===0?this.props.card_data:this.props.category_data} x={this.props.card_tab===0?"nickname":"category"} y="rewards" title={'Total Rewards: '+format_money(this.props.total_rewards)} />
+        <br />
+      </>
+    );
+  }
+}
+
+class CardSimulatorView extends React.Component {
   constructor(props){
     super(props);
     this.state = {
@@ -726,6 +848,147 @@ class CardSimulator extends React.Component {
 }
 
 /*
+ * SETUP VIEW
+ */
+class Setup extends React.Component {
+  constructor(props){
+    super(props);
+    this.state = {
+      active_card: 0,
+      card_dialog_open: false,
+
+      name: '',
+      cards: [],
+      credit_score: ''
+    };
+    this.type_first_name = this.type_first_name.bind(this);
+    this.type_credit_score = this.type_credit_score.bind(this);
+    this.add_card = this.add_card.bind(this);
+    this.card_dialog_close = this.card_dialog_close.bind(this);
+  }
+  type_first_name(e){
+    this.setState({
+      active_card: (e.target.value.trim() === '' ? 0 : (this.state.active_card === 0 ? 1 : this.state.active_card)),
+      name: e.target.value.trim()
+    });
+  }
+  type_credit_score(e){
+    this.setState({
+      credit_score: e.target.value
+    });
+  }
+  add_card(){
+    this.setState({
+      card_dialog_open: true
+    });
+  }
+  card_dialog_close(new_card, nickname){
+    let arr = this.state.cards;
+    if(new_card !== undefined){
+      arr.push({...new_card,nickname:nickname||new_card.name,outstanding_debt:0,rewards:0,balance:0});
+      if(new_card.type !== 'Debit' &&
+        (new_card.credit_score > parseInt(this.state.credit_score) ||
+        isNaN(parseInt(this.state.credit_score)))){
+        this.setState({credit_score:new_card.credit.toString()});
+      }
+    }
+    this.setState({
+      cards: arr,
+      card_dialog_open: false,
+      active_card: (arr.length > 0 ? 2 : 1)
+    });
+  }
+  render(){
+    return (
+      <div style={this.props.visible ? {} : {display:'none',visibility:'hidden',opacity:'0'}}>
+        <div className="hero">
+          <div>
+            <Card variant="outlined" className="padded-card">
+              <CardContent>
+                <Typography variant="h2" gutterBottom>
+                  Money
+                </Typography>
+                <Typography variant="h6" gutterBottom>
+                  Keep tabs on how your money moves.
+                </Typography>
+                <br />
+                <a href="#setup-start" className="no-underline">
+                  <Button variant="outlined" color="primary" className="full-width">Get started</Button>
+                </a>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <br />
+        <br />
+        <Container maxWidth="sm" id="setup-start">
+          <Card className="padded-card">
+            <CardContent>
+              <Typography variant="h3" gutterBottom>
+                First things first:
+              </Typography>
+              <TextField label="What's your first name?" variant="outlined" fullWidth onChange={this.type_first_name} />
+            </CardContent>
+          </Card>
+          <br />
+          <hr />
+          <br />
+          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
+            <CardContent>
+              <Typography variant="h3" gutterBottom>
+                What accounts do you have?
+              </Typography>
+              <br />
+              {
+                this.state.cards.map((item, i)=>{
+                  return (
+                    <div key={i}>
+                      <Card variant="outlined" className="full-width media-card">
+                        <CardMedia image={item.image} className="media-card-image" />
+                        <CardContent className="media-card-text">
+                          <Typography variant="subtitle1">
+                            {item.issuer}
+                          </Typography>
+                          <Typography variant="h5" gutterBottom>
+                            {item.nickname}
+                          </Typography>
+                          <Typography variant="subtitle1">
+                            Annual fee:  ${item.fee}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                      <br />
+                    </div>
+                  );
+                })
+              }
+              <br />
+              <Button variant="contained" color="secondary" className="full-width" onClick={this.add_card}>Add account</Button>
+              <AddCardDialog open={this.state.card_dialog_open} onClose={this.card_dialog_close} existing_cards={this.state.cards} />
+            </CardContent>
+          </Card>
+          <br />
+          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
+            <CardContent>
+              <Typography variant="h3" gutterBottom>
+                What's your credit score?
+              </Typography>
+              <TextField label="Optional" variant="outlined" fullWidth value={this.state.credit_score} onChange={this.type_credit_score} />
+            </CardContent>
+          </Card>
+          <br />
+          <hr />
+          <br />
+          <Button variant="contained" color="primary" fullWidth className="opacity-transition" style={this.state.active_card >= 2 ? {} : {opacity:'0.5', pointerEvents:'none'}} onClick={()=>{this.props.store_cards(this.state.cards);this.props.next_view({name:this.state.name})}}>Go!</Button>
+          <br />
+          <br />
+        </Container>
+      </div>
+    );
+  }
+}
+
+/*
  * MAIN APPLICATION VIEW
  */
 class Main extends React.Component {
@@ -774,89 +1037,8 @@ class Main extends React.Component {
       this.update_everything();
     }
 
-    this.columns = [
-      {
-        field: 'date',
-        headerName: 'Date',
-        type: 'date',
-        width: 150,
-        editable: true,
-        renderCell: (id)=>{
-          let date = new Date(id.row.date);
-          return (
-            <span>{date.getMonth()+1}/{date.getDate()}/{date.getFullYear()}</span>
-          );
-        }
-      },
-      {
-        field: 'name',
-        headerName: 'Name',
-        width: 150,
-        editable: true
-      },
-      {
-        field: 'amount',
-        headerName: 'Amount',
-        type: 'number',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <span>{format_money(id.row.amount)}</span>
-        )
-      },
-      {
-        field: 'card',
-        headerName: 'Account',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <Select value={id.row.card} onChange={(e, val)=>{this.change_row({...id, value:val.props.value}, e)}} fullWidth>
-            {
-              this.state.card_data.map((card, ind)=>{
-                return (
-                  <MenuItem key={ind} value={card.nickname}>
-                    {card.nickname}
-                  </MenuItem>
-                )
-              })
-            }
-          </Select>
-        )
-      },
-      {
-        field: 'category',
-        headerName: 'Category',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <Select value={id.row.category} onChange={(e, val)=>{this.change_row({...id, value:val.props.value}, e)}} fullWidth>
-            <MenuItem value="Restaurants">Restaurants</MenuItem>
-            <MenuItem value="Travel">Travel</MenuItem>
-            <MenuItem value="Groceries">Groceries</MenuItem>
-            <MenuItem value="Gas">Gas</MenuItem>
-            <MenuItem value="Entertainment">Entertainment</MenuItem>
-            <MenuItem value="Online shopping">Online shopping</MenuItem>
-            <MenuItem value="Other">Other</MenuItem>
-          </Select>
-        )
-      },
-      {
-        field: "action",
-        headerName: "Action",
-        width: 120,
-        renderCell: (id) => (
-          <>
-            <IconButton onClick={() => this.remove_transaction(id)}>
-              <TrashIcon />
-            </IconButton>
-          </>
-        )
-      }
-    ];
-
     this.view_names = {
       'Accounts': {index:0,icon:(<ListIcon/>)},
-      'hr': {index:-1,icon:(<></>)},
       'Transactions': {index:1,icon:(<AccountBalanceIcon/>)},
       'Rewards': {index:2,icon:(<CreditCardIcon/>)},
       'CC Simulator': {index:3,icon:(<AssessmentIcon/>)}
@@ -875,6 +1057,8 @@ class Main extends React.Component {
     this.update_everything = this.update_everything.bind(this);
 
     this.set_recommended_next_card = this.set_recommended_next_card.bind(this);
+
+    this.open_card_dialog = this.open_card_dialog.bind(this);
   }
   componentDidMount(){
     window.addEventListener('resize', ()=>{
@@ -1049,6 +1233,9 @@ class Main extends React.Component {
     should_rerender = false;
     this.setState({recommended_next_card});
   }
+  open_card_dialog(){
+    this.setState({card_dialog_open:true});
+  }
 
   componentDidUpdate(prevProps, prevState, snapshot){
     if(this.props.cards_from_setup.length > prevProps.cards_from_setup.length){
@@ -1069,172 +1256,60 @@ class Main extends React.Component {
         <ViewController view_name={this.state.view_name} view_names={this.view_names} changeView={this.change_view} timeframe={this.state.timeframe} change_timeframe={this.change_timeframe} />
         <br />
 
+        <AddCardDialog open={this.state.card_dialog_open} onClose={this.close_card_dialog} existing_cards={this.state.card_data} />
+
         <div style={this.state.drawer_is_permanent?{marginLeft:'169px'}:{}}>
           <Container maxWidth="md">
             <View number={0} view={this.state.view}>
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Welcome back {this.props.name}, here's your money at a glance:</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Grid container justifyContent="center" spacing={2}>
-                    <QuickLook label="Total Assets" value={format_money(this.state.total_assets)} />
-                    <QuickLook label="Outstanding Debt" value={format_money(this.state.outstanding_debt)} />
-                  </Grid>
-                  <br />
-                  <Grid container justifyContent="center" spacing={2}>
-                    <QuickLook label="Gross Inflow" value={format_money(this.state.gross_inflow)} />
-                    <QuickLook label="Gross Outflow" value={format_money(this.state.gross_outflow)} />
-                  </Grid>
-                  <br />
-                  <br />
-                  <Grid container justifyContent="center" spacing={2}>
-                    <Button variant="outlined" color="primary" onClick={()=>{this.change_view('Transactions');this.add_new_transaction()}}>Add a Transaction</Button>
-                    <span>&nbsp;&nbsp;</span>
-                    <Button variant="outlined" color="secondary" onClick={()=>{this.setState({card_dialog_open:true})}}>Add an Account</Button>
-                    <AddCardDialog open={this.state.card_dialog_open} onClose={this.close_card_dialog} existing_cards={this.state.card_data} />
-                  </Grid>
-                </Grid>
-              </Grid>
-              <br />
-              <hr />
-              <br />
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your accounts:</Typography>
-              {
-                this.state.card_data.map((card, ind)=>{
-                  return (
-                    <div key={ind}>
-                      <Card className="full-width media-card">
-                        <CardMedia image={card.image} className="media-card-image" />
-                        <CardContent className="media-card-text">
-                          <Typography variant="overline">
-                            {card.issuer}
-                          </Typography>
-                          <Typography variant="h5" gutterBottom>
-                            {card.nickname}
-                          </Typography>
-                          {
-                            (card.type === 'Debit' ? (
-                              <Typography variant="subtitle1">
-                                Current balance: {format_money(card.balance)}
-                              </Typography>
-                            ) : (
-                              <Typography variant="subtitle1">
-                                Outstanding debt: {format_money(card.outstanding_debt)}
-                                <br />
-                                Total rewards: {format_money(card.rewards)}
-                              </Typography>
-                            ))
-                          }
-                        </CardContent>
-                        <CardActions>
-                          <IconButton onClick={()=>{this.remove_card(card, ind)}}>
-                            <TrashIcon />
-                          </IconButton>
-                        </CardActions>
-                      </Card>
-                      <br />
-                    </div>
-                  );
-                })
-              }
-              <Button variant="contained" color="primary" fullWidth onClick={()=>{this.setState({card_dialog_open:true})}}>Add Account</Button>
-              <br />
-              <hr />
-              <br />
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Spending breakdown:</Typography>
-              <Paper square>
-                <Tabs value={this.state.spend_tab} onChange={this.change_spend_tab} variant="fullWidth" centered>
-                  <Tab label="Spending by Account" />
-                  <Tab label="Spending by Category" />
-                </Tabs>
-              </Paper>
-              <Breakdown data={this.state.spend_tab===0?this.state.card_data:this.state.category_data} x={this.state.spend_tab===0?"nickname":"category"} y="total_spend" title={'Total Spending: '+format_money(Math.abs(this.state.gross_outflow))} />
-              <br />
+              <AccountsView
+                name={this.props.name}
+                total_assets={this.state.total_assets}
+                outstanding_debt={this.state.outstanding_debt}
+                gross_inflow={this.state.gross_inflow}
+                gross_outflow={this.state.gross_outflow}
+                change_view={this.change_view}
+                add_new_transaction={this.add_new_transaction}
+                open_card_dialog={this.open_card_dialog}
+                card_data={this.state.card_data}
+                remove_card={this.remove_card}
+                spend_tab={this.state.spend_tab}
+                change_spend_tab={this.change_spend_tab}
+                category_data={this.state.category_data}
+              />
             </View>
 
             <View number={1} view={this.state.view}>
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your transactions at a glance:</Typography>
-              <div style={{height:'500px', width:'100%', background:'white'}}>
-                <DataGrid
-                  rows={this.state.rows}
-                  columns={this.columns}
-                  pageSize={9}
-                  onCellEditCommit={this.change_row}
-                />
-                <br />
-                <Button variant="contained" color="primary" fullWidth onClick={this.add_new_transaction}>Add New</Button>
-              </div>
+              <TransactionsView
+                rows={this.state.rows}
+                change_row={this.change_row}
+                add_new_transaction={this.add_new_transaction}
+                remove_transaction={this.remove_transaction}
+                card_data={this.state.card_data}
+              />
             </View>
 
             <View number={2} view={this.state.view}>
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards at a glance:</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Grid container justifyContent="center" spacing={2}>
-                    <QuickLook label="Total Rewards" value={format_money(this.state.total_rewards)} />
-                    <QuickLook label="Your Best Performer" value={this.state.best_performer===undefined?'N/A':this.state.best_performer.nickname} />
-                  </Grid>
-                  <br />
-                  <Grid container justifyContent="center" alignItems="center" spacing={2}>
-                    <QuickLook label="Outstanding debt" value={format_money(this.state.outstanding_debt)} />
-                    <QuickLook label="Recommended next card" value={this.state.recommended_next_card===undefined?'N/A':(<><Typography variant="subtitle1">{this.state.recommended_next_card.issuer}</Typography>{this.state.recommended_next_card.name}</>)} link={this.state.recommended_next_card===undefined?null:this.state.recommended_next_card.link} />
-                  </Grid>
-                </Grid>
-              </Grid>
-              <br />
-              <hr />
-              <br />
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your credit cards:</Typography>
-              {
-                this.state.card_data.map((card, ind)=>{
-                  if(card.type === 'Debit') return (<div key={ind}></div>);
-                  return (
-                    <div key={ind}>
-                      <Card className="full-width media-card">
-                        <CardMedia image={card.image} className="media-card-image" />
-                        <CardContent className="media-card-text">
-                          <Typography variant="overline">
-                            {card.issuer}
-                          </Typography>
-                          <Typography variant="h5" gutterBottom>
-                            {card.nickname}
-                          </Typography>
-                          <Typography variant="subtitle1">
-                            Total rewards: {format_money(card.rewards)}
-                          </Typography>
-                        </CardContent>
-                        <CardActions>
-                          <IconButton onClick={()=>{this.remove_card(card, ind)}}>
-                            <TrashIcon />
-                          </IconButton>
-                        </CardActions>
-                      </Card>
-                      <br />
-                    </div>
-                  );
-                })
-              }
-              <Button variant="contained" color="primary" fullWidth onClick={()=>{this.setState({card_dialog_open:true})}}>Add Card</Button>
-              <br />
-              <hr />
-              <br />
-              <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards:</Typography>
-              <Paper square>
-                <Tabs value={this.state.card_tab} onChange={this.change_card_tab} variant="fullWidth" centered>
-                  <Tab label="Rewards by Card" />
-                  <Tab label="Rewards by Category" />
-                </Tabs>
-              </Paper>
-              <br />
-              <Breakdown data={this.state.card_tab===0?this.state.card_data:this.state.category_data} x={this.state.card_tab===0?"nickname":"category"} y="rewards" title={'Total Rewards: '+format_money(this.state.total_rewards)} />
-              <br />
+              <RewardsView
+                total_rewards={this.state.total_rewards}
+                best_performer={this.state.best_performer}
+                outstanding_debt={this.state.outstanding_debt}
+                recommended_next_card={this.state.recommended_next_card}
+                card_data={this.state.card_data}
+                remove_card={this.remove_card}
+                open_card_dialog={this.open_card_dialog}
+                card_tab={this.state.card_tab}
+                change_card_tab={this.change_card_tab}
+                category_data={this.state.category_data}
+              />
             </View>
 
             <View number={3} view={this.state.view}>
-              <CardSimulator card_data={this.state.card_data} category_data={this.state.category_data} compute_rewards={this.compute_rewards} set_recommended_next_card={this.set_recommended_next_card} />
-            </View>
-
-            <View number={4} view={this.state.view}>
-              timecard
+              <CardSimulatorView
+                card_data={this.state.card_data}
+                category_data={this.state.category_data}
+                compute_rewards={this.compute_rewards}
+                set_recommended_next_card={this.set_recommended_next_card}
+              />
             </View>
           </Container>
         </div>
