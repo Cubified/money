@@ -546,7 +546,7 @@ class Setup extends React.Component {
                 })
               }
               <br />
-              <Button variant="contained" color="secondary" className="full-width" onClick={this.add_card}>Add card</Button>
+              <Button variant="contained" color="secondary" className="full-width" onClick={this.add_card}>Add account</Button>
               <AddCardDialog open={this.state.card_dialog_open} onClose={this.card_dialog_close} existing_cards={this.state.cards} />
             </CardContent>
           </Card>
@@ -605,9 +605,23 @@ class CardSimulator extends React.Component {
   compute_card(cat, db){
     let obj = this.props.category_data.find(el=>el.category===cat),
       out = {projected: -Infinity},
-      projected = -Infinity;
+      projected = -Infinity,
+      new_db = [];
 
     (db ?? card_db).forEach((card)=>{
+      let total = -card.fee;
+      this.props.category_data.forEach((itr_cat)=>{
+        total += this.compute_rewards({
+          amount: itr_cat.total_spend,
+          card,
+          category: itr_cat.category
+        });
+      });
+
+      if(total > 0) new_db.push(card);
+    });
+
+    new_db.forEach((card)=>{
       projected = this.compute_rewards({
         card,
         amount: obj.total_spend,
@@ -632,11 +646,20 @@ class CardSimulator extends React.Component {
     this.props.set_recommended_next_card(projections[0].card);
 
     let base = projections.slice(0, this.state.base),
-        db   = base.map(cat=>cat.card);
+        db   = base.map(cat=>cat.card),
+        af   = base.reduce((prev,next)=>({card:{fee:prev.card.fee+next.card.fee}})).card.fee;
 
     projections.slice(this.state.base).forEach((cat)=>{
       base.push(this.compute_card(cat.category, db));
     });
+
+    base.push({
+      category: 'Total',
+      card: {issuer:'',name:'Annual fee'+(this.state.base>1?'s: ':': ')+format_money(af)},
+      current: this.props.category_data.reduce((prev,next)=>({rewards:prev.rewards+next.rewards})).rewards,
+      projected: base.reduce((a,b)=>({projected:a.projected+b.projected})).projected-af
+    });
+
     return base;
   }
   data_is_empty(data){
@@ -683,7 +706,7 @@ class CardSimulator extends React.Component {
                   {
                     this.compute_base().map((cat, ind)=>{
                       return (
-                        <TableRow key={ind}>
+                        <TableRow key={ind} style={cat.category==='Total'?{fontStyle:'italic'}:{}}>
                           <TableCell>{cat.category}</TableCell>
                           <TableCell>{cat.projected===0?'N/A':cat.card.issuer+' '+cat.card.name}</TableCell>
                           <TableCell align="right">{format_money(cat.current)}</TableCell>
@@ -931,7 +954,15 @@ class Main extends React.Component {
     this.setState({card_data}, this.update_everything);
   }
   change_timeframe(timeframe){
-    this.setState({timeframe}, this.update_everything);
+    // Go go gadget terrible hack
+    //
+    // This is because changing this affects
+    //   the "next recommended card" calculation,
+    //   meaning by delaying this with a timeout
+    //   we avoid a race condition.
+    this.setState({timeframe}, ()=>{
+      setTimeout(this.update_everything, 10);
+    });
   }
  
   compute_rewards(row){
