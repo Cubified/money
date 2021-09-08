@@ -46,7 +46,8 @@ Wells Fargo,Everyday Checking,0,Debit,300,0,0,0,0,0,0,0,0,No,No,No,No,,https://u
 Ally Bank,Interest Checking,0,Debit,300,0,0,0,0,0,0,0,0,No,No,No,No,,https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Ally_Bank_logo.svg/1280px-Ally_Bank_logo.svg.png,https://www.ally.com/bank/interest-checking-account/`;
 
 let categories = [],
-    cards = [];
+  cards = [],
+  out = {};
 csv.split('\n').forEach((line, ind)=>{
   if(ind === 0){
     categories = line.split(',');
@@ -59,4 +60,12 @@ csv.split('\n').forEach((line, ind)=>{
   }
 });
 
-export default cards;
+cards.forEach((card)=>{
+  if(out[card['issuer']] === undefined){
+    out[card['issuer']] = [
+      card
+    ];
+  } else out[card['issuer']].push(card);
+});
+
+require('fs').writeFileSync('accounts.js', JSON.stringify(out));

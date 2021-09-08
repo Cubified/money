@@ -1,91 +1,79 @@
-/*eslint no-restricted-globals: 0*/
+import { useState, useEffect } from 'react';
 
-/*
- * App.js: Main app components
- */
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  AppBar,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  Drawer,
+  FormControl,
+  Grid,
+  IconButton,
+  InputLabel,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Select,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  TextField,
+  Toolbar,
+  Typography
+} from '@material-ui/core';
 
-/*
- * TODO:
- *  - More accurate points conversion/variable
- *      conversion factors (transfer partners/cash/etc.)
- *  - Minimum spend/welcome bonus tracker
- *  - Store card statement date/compute per-statement info
- *      (this will be very complicated and hard)
- *  - Ability to reorder cards
- *  - Change credit card nicknames
- *
- *  - To-dos area?
- */
+import {
+  MuiPickersUtilsProvider,
+  KeyboardDatePicker,
+} from '@material-ui/pickers';
 
-import React from 'react';
+import {
+  Autocomplete
+} from '@material-ui/lab';
 
-import Container from '@material-ui/core/Container';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import CardMedia from '@material-ui/core/CardMedia';
-
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
-
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import Drawer from '@material-ui/core/Drawer';
-import IconButton from '@material-ui/core/IconButton';
-
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-
-import Grid from '@material-ui/core/Grid';
-import Paper from '@material-ui/core/Paper';
-import {DataGrid} from '@material-ui/data-grid';
-
-import Tabs from '@material-ui/core/Tabs';
-import Tab from '@material-ui/core/Tab';
-import Select from '@material-ui/core/Select';
-import MenuItem from '@material-ui/core/MenuItem';
-
-import Link from '@material-ui/core/Link';
-import Button from '@material-ui/core/Button';
-import Typography from '@material-ui/core/Typography';
-import TextField from '@material-ui/core/TextField';
-
-import Autocomplete from '@material-ui/lab/Autocomplete';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-
-import 'date-fns';
-
-import MenuIcon from '@material-ui/icons/Menu';
+import {
+  AccountBalance,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  ExpandMore,
+  Person
+} from '@material-ui/icons';
 import ListIcon from '@material-ui/icons/List';
-import AccountBalanceIcon from '@material-ui/icons/AccountBalance';
-import CreditCardIcon from '@material-ui/icons/CreditCard';
-import TrashIcon from '@material-ui/icons/Delete';
-import AssessmentIcon from '@material-ui/icons/Assessment';
-import CalendarTodayIcon from '@material-ui/icons/CalendarToday';
-import EventNoteIcon from '@material-ui/icons/EventNote';
-import EventIcon from '@material-ui/icons/Event';
 
+import DateFnsUtils from '@date-io/date-fns';
+
+import { AreaChart } from 'react-easy-chart';
 import { PieChart } from 'react-minimal-pie-chart';
 import ReactTooltip from 'react-tooltip';
 
-import card_db from './cards.js';
+import accounts_db from './accounts.js';
 
 /*
  * GLOBAL UTILS
  */
-function format_money(money){
+
+function format_money(money, no_decimals){
   let out = '',
-      str = money.toFixed(2).toString(),
+      str = money.toFixed(no_decimals ? 0 : 2).toString(),
       trail = (str.indexOf('.') > -1 ? str.substring(str.indexOf('.')) : '');
 
   str.split('').reverse().forEach((char, ind)=>{
@@ -103,1259 +91,1190 @@ function format_money(money){
   return out;
 }
 
-function encode_string_as_color(string){
-  let out = '',
-      color = {r:0,g:0,b:0};
+function format_date(datestr){
+  let date = new Date(datestr);
+  return `${date.getMonth()+1}/${date.getDate()}/${date.getFullYear()}`;
+}
 
-  color.r = string.charCodeAt(0);
-  color.g = string.charCodeAt(string.length/2);
-  color.b = string.charCodeAt(string.length-1);
+function collapse_object(obj){
+  let out = [];
 
-  out = `rgb(${color.r}, ${color.g}, ${color.b})`;
+  for(let key in obj){
+    out.push(...obj[key]);
+  }
 
   return out;
 }
 
-let should_rerender = true;
+function sum_all(arr, prop, cmp){
+  let initial = {};
+  initial[prop] = 0;
+  return arr.reduce((prev, next) => {
+    let out = {};
+    out[prop] = prev[prop];
+    if(cmp(next)) out[prop] += next[prop];
+    return out;
+  }, initial)[prop];
+}
+
+function string_to_color(str){
+  let hash = 0, i;
+  for(i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let color = '#';
+  for(i = 0; i < 3; i++) {
+    let value = (hash >> (i * 8)) & 0xFF;
+    color += ('00' + value.toString(16)).substr(-2);
+  }
+  return color;
+}
+
+function in_range(val, min, max){
+  return (val >= min && val <= max);
+}
+
+function local_storage_get(key){
+  if(localStorage.getItem(key)) return JSON.parse(localStorage.getItem(key));
+}
+
+function is_same_day(a, b){
+  let date_a = new Date(a),
+    date_b = new Date(b);
+  return (date_a.getMonth() === date_b.getMonth() &&
+    date_a.getDate() === date_b.getDate() &&
+    date_a.getFullYear() === date_b.getFullYear());
+}
 
 /*
- * REUSED COMPONENTS
+ * GENERIC CLASSES
  */
-class AddCardDialog extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      card: null,
-      nickname: '',
 
-      name_error: false,
-      name_error_text: '',
+class Account {
+  constructor(type, obj, date, balance){
+    this.id = (Math.random()*10000).toString();
 
-      nickname_error: false,
-      nickname_error_text: ''
-    };
-    this.change_value = this.change_value.bind(this);
-    this.change_nickname = this.change_nickname.bind(this);
-    this.validate = this.validate.bind(this);
+    this.type = type;
+    this.issuer = obj.issuer;
+    this.name = obj.name;
+    this.date = (this.type === 'Credit Card' ? date : undefined);
+    this.props = obj;
+    this.balance = balance;
   }
-  change_value(e, card){
-    if(card === null){
-      this.setState({
-        card,
-        name_error: false,
-        name_error_text: ''
-      });
-    } else {
-      this.setState({
-        card,
-        name_error: false,
-        name_error_text: ''
-      });
+}
+
+class Transaction {
+  constructor(date, name, category, account, paymentAccount, amount){
+    this.date = date;
+    this.name = name;
+    this.category = category;
+    this.account = account;
+    this.paymentAccount = (this.category === 'Payment' ? paymentAccount : undefined);
+    this.amount = amount;
+  }
+}
+
+/*
+ * COMPONENTS
+ */
+  /*
+function Spacer(){
+  return (
+    <>
+      &nbsp;
+    </>
+  );
+}*/
+
+function View({ number, view, children }){
+  return (
+    <div style={view===number ? {} : {display:'none',visibility:'hidden'}}>
+      {children}
+    </div>
+  );
+}
+
+function NavigationController({ view, setView }){
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const viewNames = [
+    "Overview",
+    "Transactions",
+    "Simulator"
+  ];
+  const viewIcons = [
+    (<ListIcon />),
+    (<AccountBalance />),
+    (<CreditCard />)
+  ];
+
+  return (
+    <>
+      <AppBar position="static" className="appbar">
+        <Toolbar>
+          <Typography variant="h6" className="appbar-head">
+            Money
+          </Typography>
+          {
+            (window.innerWidth > 600 ? (
+              <div>
+                <Tabs
+                  value={view}
+                  onChange={(e, n) => setView(n)}
+                  centered>
+                  {
+                    viewNames.map((el, ind) => (
+                      <Tab key={ind} label={el} />
+                    ))
+                  }
+                </Tabs>
+              </div>
+            ) : (
+              <div>
+                <Button variant="outlined" color="inherit" onClick={() => setDrawerOpen(true) }>{viewNames[view]}</Button>
+                <Drawer anchor="top" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+                  <List>
+                    {
+                      viewNames.map((el, ind) => (
+                        <ListItem key={ind} button onClick={() => { setView(ind); setDrawerOpen(false); }}>
+                          <ListItemIcon>{viewIcons[ind]}</ListItemIcon>
+                          <ListItemText>{el}</ListItemText>
+                        </ListItem>
+                      ))
+                    }
+                  </List>
+                </Drawer>
+              </div>
+            ))
+          }
+          <div className="appbar-tail">
+            <Person />
+          </div>
+        </Toolbar>
+      </AppBar>
+    </>
+  );
+}
+
+function AccountDialog({ isOpen, addAccount, close }){
+  const [accountType, setAccountType] = useState('Checking'),
+    [account, setAccount] = useState(),
+    [statementDate, setStatementDate] = useState(new Date()),
+    [accountError, setAccountError] = useState(false),
+    [genericAccountIssuer, setGenericAccountIssuer] = useState(),
+    [genericAccountName, setGenericAccountName] = useState(),
+    [accountBalance, setAccountBalance] = useState();
+
+  useEffect(() => {
+    if(!isOpen){
+      setTimeout(() => {
+        setAccountType('Checking');
+        setAccount();
+        setStatementDate(new Date());
+        setAccountError(false);
+        setGenericAccountIssuer();
+        setGenericAccountName();
+        setAccountBalance();
+      }, 500);
     }
-  }
-  change_nickname(e){
-    this.setState({
-      nickname: e.target.value,
-      nickname_error: false,
-      nickname_error_text: ''
-    });
-  }
-  validate(){
+  }, [isOpen]);
+
+  function valid(){
     let out = true;
 
-    if(!this.state.card){
-      this.setState({
-        name_error: true,
-        name_error_text: 'Please select an account. If your account is not listed, select from the generic options at the bottom.'
-      });
-      return false;
+    if(!account){
+      setAccountError(true);
+      out = false;
     }
 
-    if(this.props.existing_cards.find(el=>el.nickname===(this.state.nickname===''?this.state.card.name:this.state.nickname)) !== undefined){
-      this.setState({
-        nickname_error: true,
-        nickname_error_text: 'A card with this name or nickname already exists.'
-      });
+    return out;
+  }
+
+  function add_if_valid(callback){
+    if(valid()){
+      let account_cpy = JSON.parse(JSON.stringify(account));
+      if(account.issuer === 'Other' &&
+         account.name.indexOf('Generic') > -1){
+        account_cpy.issuer = (!genericAccountIssuer || genericAccountIssuer.trim() === '' ? account_cpy.issuer : genericAccountIssuer);
+        account_cpy.name = (!genericAccountName || genericAccountName.trim() === '' ? account_cpy.name : genericAccountName);
+      }
+      addAccount(accountType, account_cpy, statementDate, parseFloat(accountBalance) || 0);
+      callback();
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onClose={close}>
+      <DialogTitle>Add an Account</DialogTitle>
+      <DialogContent style={{width: '65vw', maxWidth: '400px'}}>
+        <DialogContentText>
+          <FormControl variant="outlined" className="fullwidth">
+            <InputLabel id="account-type-label">Account type</InputLabel>
+            <Select
+              variant="outlined"
+              label="Account type"
+              labelId="account-type-label"
+              value={accountType}
+              onChange={(e) => setAccountType(e.target.value) }
+              fullWidth>
+              <MenuItem value="Checking">Checking</MenuItem>
+              <MenuItem value="Credit Card">Credit Card</MenuItem>
+              <MenuItem value="Savings">Savings</MenuItem>
+              <MenuItem value="Investment">Investment</MenuItem>
+              <MenuItem value="Loan">Loan</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
+            </Select>
+          </FormControl>
+          <br />
+          <br />
+          <Autocomplete
+            options={collapse_object(accounts_db[accountType]).sort((a, b) => {if(a.issuer==='Other') return 1; else if(b.issuer==='Other') return -1; else return -b.issuer.localeCompare(a.issuer)})}
+            getOptionLabel={(option) => { return (option.issuer==='Other'?'':option.issuer + ' ') + option.name }}
+            groupBy={(option) => option.issuer}
+            renderInput={(params) =>
+              <TextField
+                {...params}
+                label="Account name"
+                variant="outlined"
+                error={accountError}
+                helperText={accountError ? 'Please select an option.' : ''}
+              />
+            }
+            onChange={(e, n) => { setAccountError(false); setAccount(n); }}
+          />
+          <br />
+          {
+            (accountType === 'Credit Card' ? (
+              <>
+                <MuiPickersUtilsProvider utils={DateFnsUtils}>
+                  <KeyboardDatePicker
+                    disableToolbar
+                    variant="inline"
+                    format="MM/dd/yyyy"
+                    label="Next Statement Date"
+                    value={statementDate}
+                    onChange={setStatementDate}
+                    fullWidth
+                  />
+                </MuiPickersUtilsProvider>
+                <br />
+                <br />
+              </>
+            ) : (<></>))
+          }
+          {
+            (account && account.issuer === 'Other' && account.name.indexOf('Generic') > -1 ? (
+              <>
+                <TextField
+                  variant="outlined"
+                  label="Account Issuer (Optional)"
+                  fullWidth
+                  value={genericAccountIssuer}
+                  onChange={(e) => setGenericAccountIssuer(e.target.value)}
+                />
+                <br />
+                <br />
+                <TextField
+                  variant="outlined"
+                  label="Account Name (Optional)"
+                  fullWidth
+                  value={genericAccountName}
+                  onChange={(e) => setGenericAccountName(e.target.value)}
+                />
+                <br />
+                <br />
+              </>
+            ) : (<></>))
+          }
+          <TextField
+            variant="outlined"
+            type="number"
+            label="Balance (optional)"
+            fullWidth
+            value={accountBalance}
+            onChange={(e) => setAccountBalance(e.target.value)}
+          />
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="primary" onClick={() => add_if_valid(close) }>Add</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function TransactionDialog({ isOpen, accounts, addTransaction, close }){
+  const [date, setDate] = useState(new Date()),
+    [name, setName] = useState(''),
+    [category, setCategory] = useState('Restaurants'),
+    [account, setAccount] = useState(),
+    [paymentAccount, setPaymentAccount] = useState(),
+    [amount, setAmount] = useState();
+
+  const [nameError, setNameError] = useState(false),
+    [amountError, setAmountError] = useState(false),
+    [paymentAccountError, setPaymentAccountError] = useState(false);
+
+  function valid(){
+    let out = true;
+    if(name.trim() === ''){
+      setNameError(true);
+      out = false;
+    }
+    if(!amount){
+      setAmountError(true);
+      out = false;
+    }
+    if(category === 'Payment' && paymentAccount === account){
+      setPaymentAccountError(true);
       out = false;
     }
     return out;
   }
-  render(){
-    return (
-      <Dialog open={this.props.open} onClose={()=>{this.change_value(undefined, card_db[card_db.length-1]);this.change_nickname({target:{value:''}});this.props.onClose(undefined)}}>
-        <DialogTitle variant="h6" style={{width:"500px"}}>Add an account</DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            options={card_db.sort((a, b)=>{if(a.issuer==='Other') return 1; else if(b.issuer==='Other') return -1; else return -b.issuer.localeCompare(a.issuer)})}
-            groupBy={(option) => option.issuer}
-            getOptionLabel={(option) => {return ((option.issuer==='Other'?'':option.issuer+' ')+option.name)||''}}
-            onChange={this.change_value}
-            renderInput={(params) => (
-              <TextField {...params} label="Account name" margin="normal" variant="outlined" fullWidth error={this.state.name_error} helperText={this.state.name_error_text} />
-            )}
+
+  useEffect(() => {
+    if(isOpen){
+      setDate(new Date());
+      setName('');
+      setCategory('Restaurants');
+      setAccount(accounts[0]);
+      setPaymentAccount(accounts[0]);
+      setAmount();
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onClose={close}>
+      <DialogTitle>Add a Transaction</DialogTitle>
+      <DialogContent style={{width: '65vw', maxWidth: '400px'}}>
+        <MuiPickersUtilsProvider utils={DateFnsUtils}>
+          <KeyboardDatePicker
+            disableToolbar
+            variant="inline"
+            format="MM/dd/yyyy"
+            label="Date"
+            value={date}
+            onChange={setDate}
+            fullWidth
           />
-          <TextField label="Nickname (optional)" variant="outlined" fullWidth error={this.state.nickname_error} helperText={this.state.nickname_error_text} value={this.state.nickname} onChange={this.change_nickname} />
-          <br />
-          <br />
-          {
-            (this.state.card !== null && this.state.card.type !== 'Debit' ? (
-              <DialogContentText>
-                Annual fee: ${this.state.card===null?'0':this.state.card.fee}
-                <br />
-                Recommended credit score: {this.state.card===null?'N/A':this.state.card.credit}
-              </DialogContentText>
-            ) : (<></>))
-          }
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" color="primary" onClick={()=>{if(this.validate()){this.change_value(undefined, card_db[card_db.length-1]);this.change_nickname({target:{value:''}});this.props.onClose(this.state.card, this.state.nickname)}}}>Add</Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
-}
-
-/*
-class AddTransDialog extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      trans: {id: Date.now(), date: new Date(Date.now()), name: 'jeff', amount: '$123', card: 'meme', category: 'other'}
-    };
-    this.handleDateChange = this.handleDateChange.bind(this);
-  }
-  handleDateChange(date){
-    let cpy = JSON.parse(JSON.stringify(this.state.trans));
-    cpy.date = date;
-    this.setState({
-      trans: cpy
-    });
-  }
-  render(){
-    return (
-      <Dialog open={this.props.open} onClose={()=>{this.props.onClose(undefined)}}>
-        <DialogTitle variant="h6" style={{width:"500px"}}>Add a transaction</DialogTitle>
-        <DialogContent>
-          <MuiPickersUtilsProvider utils={DateFnsUtils}>
-            <KeyboardDatePicker
-              disableToolbar
-              variant="inline"
-              format="MM/dd/yyyy"
-              margin="normal"
-              id="date-picker-inline"
-              label="Date"
-              value={this.state.trans.date}
-              onChange={this.handleDateChange}
-            />
-            <TextField variant="outlined" label="Name" />
-          </MuiPickersUtilsProvider>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" color="secondary" onClick={()=>{this.props.onClose(this.state.trans);this.state.trans.id=Date.now()}}>Add</Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
-}
-*/
-
-class ViewController extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      drawer: false,
-      drawer_type: (window.innerWidth < 900 ? 'temporary' : 'permanent')
-    };
-    this.toggle_drawer = this.toggle_drawer.bind(this);
-  }
-  componentDidMount(){
-    window.addEventListener('resize', ()=>{
-      let old = this.state.drawer_type;
-      this.setState({
-        drawer_type: (window.innerWidth < 900 ? 'temporary' : 'permanent')
-      });
-      if(old !== this.state.drawer_type && this.state.drawer_type === 'temporary') this.setState({drawer:false});
-    });
-  }
-  toggle_drawer(){
-    this.setState({
-      drawer: !this.state.drawer
-    });
-  }
-  render(){
-    return (
-      <div>
-        <AppBar position="static" style={this.state.drawer_type==='permanent'?{width:'calc(100vw - 200px)', marginLeft:'200px'}:{}}>
-          <Toolbar>
-            <IconButton edge="start" color="inherit" onClick={this.toggle_drawer} style={this.state.drawer_type==='temporary'?{}:{display:'none',visibility:'hidden',opacity:'0'}}>
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6">
-              {this.props.view_name}
-            </Typography>
-          </Toolbar>
-        </AppBar>
-        <Drawer variant={this.state.drawer_type} open={this.state.drawer} onClose={this.toggle_drawer} style={{width:'200px'}}>
-          <List style={{display:'flex',flexDirection:'column',height:'100%', width:'200px'}}>
-            {
-              Object.keys(this.props.view_names).map((vn, ind)=>{
-                if(vn === 'hr') return (<hr key={ind} style={{width:'200px'}}/>);
-                return (
-                  <ListItem key={ind} button selected={this.props.view_name===vn} onClick={()=>{this.props.changeView(vn);this.setState({drawer:false})}}>
-                    <ListItemIcon>{this.props.view_names[vn].icon}</ListItemIcon>
-                    <ListItemText>{vn}</ListItemText>
-                  </ListItem>
-                );
-              })
-            }
-            <div style={{flexGrow:1}}></div>
-            <ListItem button selected={this.props.timeframe==='all'} onClick={()=>{this.props.change_timeframe('all')}}>
-              <ListItemIcon><EventNoteIcon/></ListItemIcon>
-              <ListItemText>View All Time</ListItemText>
-            </ListItem>
-            <ListItem button selected={this.props.timeframe==='ytd'} onClick={()=>{this.props.change_timeframe('ytd')}}>
-              <ListItemIcon><EventIcon/></ListItemIcon>
-              <ListItemText>View YTD</ListItemText>
-            </ListItem>
-            <ListItem button selected={this.props.timeframe==='month'} onClick={()=>{this.props.change_timeframe('month')}}>
-              <ListItemIcon><CalendarTodayIcon/></ListItemIcon>
-              <ListItemText>View Month</ListItemText>
-            </ListItem>
-          </List>
-        </Drawer>
-      </div>
-    );
-  }
-}
-
-class QuickLook extends React.Component {
-  render(){
-    return (
-      <Grid item>
-        <Card className="padded-card" style={{textAlign:'center'}}>
-          <Typography variant="h4">{this.props.link?(<Link href={this.props.link}>{this.props.value}</Link>):(<>{this.props.value}</>)}</Typography>
-          <Typography variant="overline">{this.props.label}</Typography>
-        </Card>
-      </Grid>
-    );
-  }
-}
-
-class Breakdown extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      tooltip: undefined
-    };
-    this.set_hover = this.set_hover.bind(this);
-    this.generate_tooltip = this.generate_tooltip.bind(this);
-
-    this.chart_id = `chart-${Math.random()*10000}`;
-  }
-  set_hover(hover, ind){
-    if(hover === undefined){
-      this.setState({
-        tooltip: undefined
-      });
-    } else {
-      this.setState({
-        tooltip: ind
-      });
-    }
-  }
-  generate_tooltip(){
-    if(this.state.tooltip === undefined) return null;
-
-    return `${this.props.data[this.state.tooltip][this.props.x]}: ${format_money(this.props.data[this.state.tooltip][this.props.y])}`;
-  }
-  conform_data(data){
-    let out = [];
-    data.forEach((datum)=>{
-      out.push({
-        title: datum[this.props.x],
-        value: datum[this.props.y],
-        color: encode_string_as_color(datum[this.props.x])
-      });
-    });
-    return out;
-  }
-  data_is_empty(data){
-    let out = true;
-    data.forEach((datum)=>{
-      if(datum[this.props.y] > 0) out = false;
-    });
-    return out;
-  }
-  render(){
-    if(this.data_is_empty(this.props.data)){
-      return (
-        <Typography variant="subtitle1" style={{textAlign:'center'}}>
-          <br />
-          No spending yet recorded.
-        </Typography>
-      );
-    }
-
-    return (
-      <div data-tip='' data-for={this.chart_id}>
-        <PieChart
-          data={this.conform_data(this.props.data)}
-          radius={30}
-          lineWidth={30}
-          viewBoxSize={[100, 75]}
-          center={[50, 32.5]}
-          onMouseOver={this.set_hover}
-          onMouseOut={()=>{this.set_hover(undefined)}}
-          label={()=>{return this.props.title}}
-          labelStyle={{
-            fontSize: '0.2125rem',
-            fontFamily: 'Roboto, sans-serif',
-            fill: '#333',
-          }}
-          labelPosition={0}
+        </MuiPickersUtilsProvider>
+        <br />
+        <br />
+        <TextField
+          variant="outlined"
+          label="Name"
+          fullWidth
+          error={nameError}
+          helperText={nameError ? 'Please enter a name.' : ''}
+          value={name}
+          onChange={(e) => { setNameError(false); setName(e.target.value); }}
         />
-        <ReactTooltip id={this.chart_id} getContent={this.generate_tooltip} />
-      </div>
-    );
-  }
-}
-
-class View extends React.Component {
-  shouldComponentUpdate(nextProps, nextState){
-    if(nextProps.view === this.props.number ||
-       this.props.view === this.props.number) return true;
-    return false;
-  }
-  render(){
-    return (
-      <div style={this.props.view===this.props.number?{}:{display:'none',visibility:'hidden',opacity:'0'}}>
-        {this.props.children}
-      </div>
-    );
-  }
-}
-
-/*
- * SUB-VIEWS
- */
-
-class AccountsView extends React.Component {
-  render(){
-    return (
-      <>
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Welcome back {this.props.name}, here's your money at a glance:</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Grid container justifyContent="center" spacing={2}>
-              <QuickLook label="Total Assets" value={format_money(this.props.total_assets)} />
-              <QuickLook label="Outstanding Debt" value={format_money(this.props.outstanding_debt)} />
-            </Grid>
-            <br />
-            <Grid container justifyContent="center" spacing={2}>
-              <QuickLook label="Gross Inflow" value={format_money(this.props.gross_inflow)} />
-              <QuickLook label="Gross Outflow" value={format_money(this.props.gross_outflow)} />
-            </Grid>
-            <br />
-            <br />
-            <Grid container justifyContent="center" spacing={2}>
-              <Button variant="outlined" color="primary" onClick={()=>{this.props.change_view('Transactions');this.props.add_new_transaction()}}>Add a Transaction</Button>
-              <span>&nbsp;&nbsp;</span>
-              <Button variant="outlined" color="secondary" onClick={this.props.open_card_dialog}>Add an Account</Button>
-            </Grid>
-          </Grid>
-        </Grid>
         <br />
-        <hr />
         <br />
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your accounts:</Typography>
-        {
-          this.props.card_data.map((card, ind)=>{
-            return (
-              <div key={ind}>
-                <Card className="full-width media-card">
-                  <CardMedia image={card.image} className="media-card-image" />
-                  <CardContent className="media-card-text">
-                    <Typography variant="overline">
-                      {card.issuer}
-                    </Typography>
-                    <Typography variant="h5" gutterBottom>
-                      {card.nickname}
-                    </Typography>
-                    {
-                      (card.type === 'Debit' ? (
-                        <Typography variant="subtitle1">
-                          Current balance: {format_money(card.balance)}
-                        </Typography>
-                      ) : (
-                        <Typography variant="subtitle1">
-                          Outstanding debt: {format_money(card.outstanding_debt)}
-                          <br />
-                          Total rewards: {format_money(card.rewards)}
-                        </Typography>
-                      ))
-                    }
-                  </CardContent>
-                  <CardActions>
-                    <IconButton onClick={()=>{this.props.remove_card(card, ind)}}>
-                      <TrashIcon />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-                <br />
-              </div>
-            );
-          })
-        }
-        <Button variant="contained" color="primary" fullWidth onClick={this.props.open_card_dialog}>Add Account</Button>
+        <FormControl variant="outlined" className="fullwidth">
+          <InputLabel id="category-label">Category</InputLabel>
+          <Select
+            variant="outlined"
+            label="Category"
+            label-id="category-label"
+            value={category}
+            onChange={(e) => setCategory(e.target.value) }
+            fullWidth
+          >
+              <MenuItem value="Restaurants">Restaurants</MenuItem>
+              <MenuItem value="Travel / Entertainment">Travel / Entertainment</MenuItem>
+              <MenuItem value="Groceries">Groceries</MenuItem>
+              <MenuItem value="Gas">Gas</MenuItem>
+              <MenuItem value="Online shopping">Online shopping</MenuItem>
+              <MenuItem value="Payment">Payment</MenuItem>
+              <MenuItem value="Deposit / Withdrawal">Deposit / Withdrawal</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
+          </Select>
+        </FormControl>
         <br />
-        <hr />
         <br />
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Spending breakdown:</Typography>
-        <Paper square>
-          <Tabs value={this.props.spend_tab} onChange={this.props.change_spend_tab} variant="fullWidth" centered>
-            <Tab label="Spending by Account" />
-            <Tab label="Spending by Category" />
-          </Tabs>
-        </Paper>
-        <Breakdown data={this.props.spend_tab===0?this.props.card_data:this.props.category_data} x={this.props.spend_tab===0?"nickname":"category"} y="total_spend" title={'Total Spending: '+format_money(Math.abs(this.props.gross_outflow))} />
-        <br />
-      </>
-    );
-  }
-}
-
-class TransactionsView extends React.Component {
-  constructor(props){
-    super(props);
-    this.columns = [
-      {
-        field: 'date',
-        headerName: 'Date',
-        type: 'date',
-        width: 150,
-        editable: true,
-        renderCell: (id)=>{
-          let date = new Date(id.row.date);
-          return (
-            <span>{date.getMonth()+1}/{date.getDate()}/{date.getFullYear()}</span>
-          );
-        }
-      },
-      {
-        field: 'name',
-        headerName: 'Name',
-        width: 150,
-        editable: true
-      },
-      {
-        field: 'amount',
-        headerName: 'Amount',
-        type: 'number',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <span>{format_money(id.row.amount)}</span>
-        )
-      },
-      {
-        field: 'card',
-        headerName: 'Account',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <Select value={id.row.card} onChange={(e, val)=>{this.props.change_row({...id, value:val.props.value}, e)}} fullWidth>
+        <FormControl variant="outlined" className="fullwidth">
+          <InputLabel id="account-label">Account</InputLabel>
+          <Select
+            variant="outlined"
+            label="Account"
+            label-id="account-label"
+            value={account}
+            onChange={(e) => { setPaymentAccountError(false); setAccount(e.target.value) }}
+            fullWidth
+          >
             {
-              this.props.card_data.map((card, ind)=>{
-                return (
-                  <MenuItem key={ind} value={card.nickname}>
-                    {card.nickname}
-                  </MenuItem>
-                )
-              })
+              accounts.map((acc, ind) => (
+                <MenuItem key={ind} value={acc}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+              ))
             }
           </Select>
-        )
-      },
-      {
-        field: 'category',
-        headerName: 'Category',
-        width: 150,
-        editable: true,
-        renderCell: (id) => (
-          <Select value={id.row.category} onChange={(e, val)=>{this.props.change_row({...id, value:val.props.value}, e)}} fullWidth>
-            <MenuItem value="Restaurants">Restaurants</MenuItem>
-            <MenuItem value="Travel">Travel</MenuItem>
-            <MenuItem value="Groceries">Groceries</MenuItem>
-            <MenuItem value="Gas">Gas</MenuItem>
-            <MenuItem value="Entertainment">Entertainment</MenuItem>
-            <MenuItem value="Online shopping">Online shopping</MenuItem>
-            <MenuItem value="Other">Other</MenuItem>
-          </Select>
-        )
-      },
-      {
-        field: "action",
-        headerName: "Action",
-        width: 120,
-        renderCell: (id) => (
-          <>
-            <IconButton onClick={() => this.props.remove_transaction(id)}>
-              <TrashIcon />
-            </IconButton>
-          </>
-        )
-      }
-    ];
-  }
-  render(){
-    return (
-      <>
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your transactions at a glance:</Typography>
-        <div style={{height:'500px', width:'100%', background:'white'}}>
-          <DataGrid
-            rows={this.props.rows}
-            columns={this.columns}
-            pageSize={9}
-            onCellEditCommit={this.props.change_row}
-          />
-          <br />
-          <Button variant="contained" color="primary" fullWidth onClick={this.props.add_new_transaction}>Add New</Button>
-        </div>
-      </>
-    );
-  }
-}
-
-class RewardsView extends React.Component {
-  render(){
-    return (
-      <>
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards at a glance:</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Grid container justifyContent="center" alignItems="center" spacing={2}>
-              <QuickLook label="Total Rewards" value={format_money(this.props.total_rewards)} />
-              <QuickLook label="Your Best Performer" value={this.props.best_performer===undefined?'N/A':(<><Typography variant="subtitle1">{this.props.best_performer.issuer}</Typography>{this.props.best_performer.nickname}</>)} />
-            </Grid>
-            <br />
-            <Grid container justifyContent="center" alignItems="center" spacing={2}>
-              <QuickLook label="Outstanding debt" value={format_money(this.props.outstanding_debt)} />
-              <QuickLook label="Recommended next card" value={this.props.recommended_next_card===undefined?'N/A':(<><Typography variant="subtitle1">{this.props.recommended_next_card.issuer}</Typography>{this.props.recommended_next_card.name}</>)} link={this.props.recommended_next_card===undefined?null:this.props.recommended_next_card.link} />
-            </Grid>
-          </Grid>
-        </Grid>
+        </FormControl>
         <br />
-        <hr />
-        <br />
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your credit cards:</Typography>
-        {
-          this.props.card_data.map((card, ind)=>{
-            if(card.type === 'Debit') return (<div key={ind}></div>);
-            return (
-              <div key={ind}>
-                <Card className="full-width media-card">
-                  <CardMedia image={card.image} className="media-card-image" />
-                  <CardContent className="media-card-text">
-                    <Typography variant="overline">
-                      {card.issuer}
-                    </Typography>
-                    <Typography variant="h5" gutterBottom>
-                      {card.nickname}
-                    </Typography>
-                    <Typography variant="subtitle1">
-                      Total rewards: {format_money(card.rewards)}
-                    </Typography>
-                  </CardContent>
-                  <CardActions>
-                    <IconButton onClick={()=>{this.props.remove_card(card, ind)}}>
-                      <TrashIcon />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-                <br />
-              </div>
-            );
-          })
-        }
-        <Button variant="contained" color="primary" fullWidth onClick={this.props.open_card_dialog}>Add Card</Button>
-        <br />
-        <hr />
-        <br />
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>Your rewards:</Typography>
-        <Paper square>
-          <Tabs value={this.props.card_tab} onChange={this.props.change_card_tab} variant="fullWidth" centered>
-            <Tab label="Rewards by Card" />
-            <Tab label="Rewards by Category" />
-          </Tabs>
-        </Paper>
-        <br />
-        <Breakdown data={this.props.card_tab===0?this.props.card_data:this.props.category_data} x={this.props.card_tab===0?"nickname":"category"} y="rewards" title={'Total Rewards: '+format_money(this.props.total_rewards)} />
-        <br />
-      </>
-    );
-  }
-}
-
-class CardSimulatorView extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      base: 1
-    };
-    this.change_base = this.change_base.bind(this);
-    this.compute_rewards = this.compute_rewards.bind(this);
-    this.compute_card = this.compute_card.bind(this);
-    this.compute_base = this.compute_base.bind(this);
-    this.data_is_empty = this.data_is_empty.bind(this);
-
-    this.categories = [
-      "Restaurants",
-      "Travel",
-      "Groceries",
-      "Gas",
-      "Entertainment",
-      "Online shopping",
-      "Other"
-    ];
-  }
-  change_base(e){
-    this.setState({base:e.target.value});
-  }
-  compute_rewards(row){
-    return row.amount * row.card[row.category.toLowerCase()] * row.card.conversion;
-  }
-  compute_card(cat, db){
-    let obj = this.props.category_data.find(el=>el.category===cat),
-      out = {projected: -Infinity},
-      projected = -Infinity,
-      new_db = [];
-
-    (db ?? card_db).forEach((card)=>{
-      let total = -card.fee;
-      this.props.category_data.forEach((itr_cat)=>{
-        total += this.compute_rewards({
-          amount: itr_cat.total_spend,
-          card,
-          category: itr_cat.category
-        });
-      });
-
-      if(total > 0) new_db.push(card);
-    });
-
-    new_db.forEach((card)=>{
-      projected = this.compute_rewards({
-        card,
-        amount: obj.total_spend,
-        category: cat
-      });
-      if(projected > out.projected){
-        out = {
-          category: cat,
-          card,
-          current: obj.rewards,
-          projected
-        };
-      }
-    });
-
-    return out;
-  }
-  compute_base(){
-    let projections = this.categories.map(cat=>this.compute_card(cat));
-    projections = projections.sort((a,b)=>{return b.projected-a.projected});
-
-    this.props.set_recommended_next_card(projections[0].card);
-
-    let base = projections.slice(0, this.state.base),
-        db   = base.map(cat=>cat.card),
-        af   = base.reduce((prev,next)=>({card:{fee:prev.card.fee+next.card.fee}})).card.fee;
-
-    projections.slice(this.state.base).forEach((cat)=>{
-      base.push(this.compute_card(cat.category, db));
-    });
-
-    base.push({
-      category: 'Total',
-      card: {issuer:'',name:'Annual fee'+(this.state.base>1?'s: ':': ')+format_money(af)},
-      current: this.props.category_data.reduce((prev,next)=>({rewards:prev.rewards+next.rewards})).rewards,
-      projected: base.reduce((a,b)=>({projected:a.projected+b.projected})).projected-af
-    });
-
-    return base;
-  }
-  data_is_empty(data){
-    let sum = 0;
-    data.forEach((datum)=>{
-      sum += datum.total_spend;
-    });
-    return (sum === 0);
-  }
-  render(){
-    return (
-      <div>
-        <Typography variant="h4" gutterBottom style={{textAlign:'center'}}>
-          I'd like to build a&nbsp;
-          <Select value={this.state.base} onChange={this.change_base} style={{fontSize:'2.125rem'}}>
-            <MenuItem value={1}>1-card</MenuItem>
-            <MenuItem value={2}>2-card</MenuItem>
-            <MenuItem value={3}>3-card</MenuItem>
-            <MenuItem value={4}>4-card</MenuItem>
-            <MenuItem value={5}>5-card</MenuItem>
-            <MenuItem value={6}>6-card</MenuItem>
-            <MenuItem value={7}>7-card</MenuItem>
-          </Select>
-          &nbsp;base:
-        </Typography>
         <br />
         {
-          this.data_is_empty(this.props.category_data) ? (
-            <Typography variant="subtitle1" style={{textAlign:'center'}}>
-              No spending yet recorded.
-            </Typography>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Card</TableCell>
-                    <TableCell align="right">Current Rewards</TableCell>
-                    <TableCell align="right">Projected Rewards</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+          (category === 'Payment' ? (
+            <>
+              <FormControl variant="outlined" className="fullwidth">
+                <InputLabel id="payment-account-label">Payment Account</InputLabel>
+                <Select
+                  variant="outlined"
+                  label="Payment Account"
+                  label-id="payment-account-label"
+                  error={paymentAccountError}
+                  helperText={paymentAccountError ? 'Payment account cannot be the same as the account being paid off.' : ''}
+                  value={paymentAccount}
+                  onChange={(e) => { setPaymentAccountError(false); setPaymentAccount(e.target.value) }}
+                  fullWidth
+                >
                   {
-                    this.compute_base().map((cat, ind)=>{
-                      return (
-                        <TableRow key={ind} style={cat.category==='Total'?{fontStyle:'italic'}:{}}>
-                          <TableCell>{cat.category}</TableCell>
-                          <TableCell>{cat.projected===0?'N/A':cat.card.issuer+' '+cat.card.name}</TableCell>
-                          <TableCell align="right">{format_money(cat.current)}</TableCell>
-                          <TableCell align="right" style={{fontWeight:'bold'}}>{format_money(cat.projected)}</TableCell>
-                        </TableRow>
-                      );
-                    })
+                    accounts.map((acc, ind) => (
+                      <MenuItem key={ind} value={acc}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+                    ))
                   }
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )
+                </Select>
+              </FormControl>
+              <br />
+              <br />
+            </>
+          ) : (<></>))
         }
-      </div>
-    );
-  }
+        <TextField
+          variant="outlined"
+          type="number"
+          label="Amount"
+          error={amountError}
+          helperText={amountError ? 'Please enter an amount.' : ''}
+          fullWidth
+          value={amount}
+          onChange={(e) => { setAmountError(false); setAmount(e.target.value); }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { addTransaction(date, name, category, account, paymentAccount, parseFloat(amount)); close(); }}}>Add</Button>
+      </DialogActions>
+    </Dialog>
+  );
 }
 
-/*
- * SETUP VIEW
- */
-class Setup extends React.Component {
-  constructor(props){
-    super(props);
-    this.state = {
-      active_card: 0,
-      card_dialog_open: false,
-
-      name: '',
-      cards: [],
-      credit_score: ''
-    };
-    this.type_first_name = this.type_first_name.bind(this);
-    this.type_credit_score = this.type_credit_score.bind(this);
-    this.add_card = this.add_card.bind(this);
-    this.card_dialog_close = this.card_dialog_close.bind(this);
-  }
-  type_first_name(e){
-    this.setState({
-      active_card: (e.target.value.trim() === '' ? 0 : (this.state.active_card === 0 ? 1 : this.state.active_card)),
-      name: e.target.value.trim()
-    });
-  }
-  type_credit_score(e){
-    this.setState({
-      credit_score: e.target.value
-    });
-  }
-  add_card(){
-    this.setState({
-      card_dialog_open: true
-    });
-  }
-  card_dialog_close(new_card, nickname){
-    let arr = this.state.cards;
-    if(new_card !== undefined){
-      arr.push({...new_card,nickname:nickname||new_card.name,outstanding_debt:0,rewards:0,balance:0});
-      if(new_card.type !== 'Debit' &&
-        (new_card.credit_score > parseInt(this.state.credit_score) ||
-        isNaN(parseInt(this.state.credit_score)))){
-        this.setState({credit_score:new_card.credit.toString()});
+function TransactionList({ transactions, max, paginate }){
+  const [page, setPage] = useState(0);
+  
+  return (
+    <>
+      {
+        (transactions.length === 0 ? (
+          <Typography variant="subtitle1" style={{textAlign:"center",marginBottom:'10px'}}>
+            No transactions yet recorded.
+            <br />
+            <i>To add an account, click the "+" button on the left panel.</i>
+          </Typography>
+        ) : (<></>))
       }
-    }
-    this.setState({
-      cards: arr,
-      card_dialog_open: false,
-      active_card: (arr.length > 0 ? 2 : 1)
-    });
-  }
-  render(){
-    return (
-      <div style={this.props.visible ? {} : {display:'none',visibility:'hidden',opacity:'0'}}>
-        <div className="hero">
-          <div>
-            <Card variant="outlined" className="padded-card">
-              <CardContent>
-                <Typography variant="h2" gutterBottom>
-                  Money
-                </Typography>
-                <Typography variant="h6" gutterBottom>
-                  Keep tabs on how your money moves.
-                </Typography>
-                <br />
-                <a href="#setup-start" className="no-underline">
-                  <Button variant="outlined" color="primary" className="full-width">Get started</Button>
-                </a>
+      {
+        (paginate ? transactions.slice(page*max, (page+1)*max) : transactions).map((trans, ind) => {
+          if(ind > max) return (<div key={ind}></div>);
+          return (<div key={ind}>
+            <Card variant="outlined">
+              <CardContent className="flex-space-between">
+                <div>
+                  <Typography variant="overline">{format_date(trans.date)}</Typography>
+                  <Typography variant="h6">{trans.name}</Typography>
+                </div>
+                <div className="text-align-right">
+                  <Typography variant="h6">{format_money(trans.amount)}</Typography>
+                  <Typography variant="overline">{trans.account.issuer==='Other'?'':trans.account.issuer} {trans.account.name}</Typography>
+                </div>
               </CardContent>
             </Card>
-          </div>
-        </div>
-        <br />
-        <br />
-        <Container maxWidth="sm" id="setup-start">
-          <Card className="padded-card">
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                First things first:
-              </Typography>
-              <TextField label="What's your first name?" variant="outlined" fullWidth onChange={this.type_first_name} />
-            </CardContent>
-          </Card>
-          <br />
-          <hr />
-          <br />
-          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                What accounts do you have?
-              </Typography>
-              <br />
-              {
-                this.state.cards.map((item, i)=>{
-                  return (
-                    <div key={i}>
-                      <Card variant="outlined" className="full-width media-card">
-                        <CardMedia image={item.image} className="media-card-image" />
-                        <CardContent className="media-card-text">
-                          <Typography variant="subtitle1">
-                            {item.issuer}
-                          </Typography>
-                          <Typography variant="h5" gutterBottom>
-                            {item.nickname}
-                          </Typography>
-                          <Typography variant="subtitle1">
-                            Annual fee:  ${item.fee}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                      <br />
-                    </div>
-                  );
-                })
-              }
-              <br />
-              <Button variant="contained" color="secondary" className="full-width" onClick={this.add_card}>Add account</Button>
-              <AddCardDialog open={this.state.card_dialog_open} onClose={this.card_dialog_close} existing_cards={this.state.cards} />
-            </CardContent>
-          </Card>
-          <br />
-          <Card className="padded-card" style={this.state.active_card >= 1 ? {} : {opacity:'0.5', pointerEvents:'none'}}>
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                What's your credit score?
-              </Typography>
-              <TextField label="Optional" variant="outlined" fullWidth value={this.state.credit_score} onChange={this.type_credit_score} />
-            </CardContent>
-          </Card>
-          <br />
-          <hr />
-          <br />
-          <Button variant="contained" color="primary" fullWidth className="opacity-transition" style={this.state.active_card >= 2 ? {} : {opacity:'0.5', pointerEvents:'none'}} onClick={()=>{this.props.store_cards(this.state.cards);this.props.next_view({name:this.state.name})}}>Go!</Button>
-          <br />
-          <br />
-        </Container>
-      </div>
-    );
-  }
+            <br />
+          </div>);
+        })
+      }
+      { (paginate ? (
+        <div className="flex-center">
+          <IconButton onClick={() => setPage(page-1)} disabled={page===0}><ChevronLeft /></IconButton>
+          <div>Page {page+1} of {Math.floor(transactions.length/max)+1}</div>
+          <IconButton onClick={() => setPage(page+1)} disabled={page===Math.floor(transactions.length/max)}><ChevronRight /></IconButton>
+        </div>) : (<></>))
+      }
+    </>
+  );
 }
 
-/*
- * MAIN APPLICATION VIEW
- */
-class Main extends React.Component {
-  constructor(props){
-    super(props);
-    let state = localStorage.getItem('Main_state');
-    if(state === null){
-      this.state = {
-        view: 0,
-        drawer_is_permanent: (window.innerWidth >= 900),
-        trans_dialog_open: false,
-        card_tab: 0,
-        spend_tab: 1,
+function AccountsAccordion({ name, accounts }){
+  if(accounts.length === 0) return (<></>);
 
-        total_assets: 0,
-        outstanding_debt: 0,
-        gross_inflow: 0,
-        gross_outflow: 0,
+  return (
+    <Accordion square defaultExpanded className="accordion">
+      <AccordionSummary className="accordion-summary" expandIcon={<ExpandMore />}>
+        <Typography variant="h6" className="fs-13">{name}</Typography>
+        <Typography variant="h6" className="fs-13">{format_money(accounts.reduce((prev, next) => {return {balance: prev.balance+next.balance}}, {balance:0}).balance, true)}</Typography>
+      </AccordionSummary>
+      <AccordionDetails className="no-margin no-padding">
+        <div className="fullwidth">
+          {
+            accounts.map((account, ind) => {
+              return (<div key={ind}>
+                <div className="account">
+                  <div className="account-left">
+                    <Typography variant="h6" className="fs-11">{account.issuer === 'Other' ? account.name : account.issuer}</Typography>
+                    <Typography variant="subtitle1" className="fs-9">{account.issuer === 'Other' ? name + ' Account' : account.name}</Typography>
+                  </div>
+                  <div className="account-right">
+                    <Typography variant="h6" className="fs-11">{format_money(account.balance)}</Typography>
+                  </div>
+                </div>
+                <Divider />
+              </div>);
+            })
+          }
+        </div>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
 
-        total_rewards: 0,
-        best_performer: undefined,
-        recommended_next_card: undefined,
+function CardSimulator({ summary, accounts, transactions }){
+  const [baseSize, setBaseSize] = useState(1);
 
-        card_data: [],
-        // card_data: [...this.props.cards_from_setup], // XXX: Debug
-        category_data: [
-          {category:'Restaurants', total_spend: 0, rewards: 0},
-          {category:'Travel', total_spend: 0, rewards: 0},
-          {category:'Groceries', total_spend: 0, rewards: 0},
-          {category:'Gas', total_spend: 0, rewards: 0},
-          {category:'Entertainment', total_spend: 0, rewards: 0},
-          {category:'Online shopping', total_spend: 0, rewards: 0},
-          {category:'Other', total_spend: 0, rewards: 0},
-        ],
+  const categories = [
+    "Restaurants",
+    "Travel / Entertainment",
+    "Groceries",
+    "Gas",
+    "Online shopping",
+    "Other"
+  ];
+  const db = collapse_object(accounts_db['Credit Card']);
 
-        card_dialog_open: false,
+  function rewards(card, trans){
+    let cat = trans.category;
+    if(categories.indexOf(cat) === -1) return 0;
+    if(cat === 'Travel / Entertainment') cat = 'Entertainment';
+    return Math.abs(trans.amount * card[cat.toLowerCase()] * card.conversion);
+  }
 
-        view_name: 'Accounts',
+  function sort_cards_by_rewards(){
+    let out = db.slice();
+    out.forEach(card => {
+      let tot = -card.fee;
+      transactions.forEach(trans => {
+        tot += rewards(card, trans);
+      });
+      card.total_rewards = tot;
+    });
+    return out.sort((a, b) => {
+      return b.total_rewards-a.total_rewards;
+    }).filter(el => el.total_rewards > 0);
+  }
 
-        timeframe: 'all',
+  function best_card_for_category(new_db, category){
+    let total_spend = transactions.reduce((prev, next) => {
+        if(next.category === category){
+          return {
+            amount: prev.amount + next.amount
+          };
+        }
+        return {amount: prev.amount};
+      }, {amount:0}).amount;
 
-        rows: []
+    return new_db.reduce((prev, next) => {
+      if(rewards(next, {amount: total_spend, category}) >
+         rewards(prev, {amount: total_spend, category})){
+        return next;
+      }
+      return prev;
+    }, accounts_db['Credit Card']['Other'][0]);
+  }
+
+  let new_db = sort_cards_by_rewards(),
+    categories_by_spend = [],
+    base = [];
+  transactions.forEach(trans => {
+    if(categories.indexOf(trans.category) > -1){
+      let el = categories_by_spend.find(el => el.category === trans.category);
+      if(el === undefined) categories_by_spend.push({category: trans.category, spend: trans.amount});
+      else el.spend += trans.amount;
+    }
+  });
+  categories_by_spend.sort((a, b) => (a.spend - b.spend));
+  categories_by_spend.forEach(el => {
+    let out = {...el, card: best_card_for_category(new_db, el.category)};
+    out.rewards = rewards(out.card, {category: el.category, amount: el.spend});
+    base.push(out);
+  });
+  base.sort((a, b) => (b.rewards-a.rewards));
+  base = base.slice(0, baseSize);
+
+  let total_af = base.reduce((prev, next) => { return {card: {fee: prev.card.fee+next.card.fee}}}, {card:{fee:0}}).card.fee;
+
+  new_db = base.map(el => el.card);
+  categories.forEach(cat => {
+    if(!base.find(el => el.category === cat)){
+      let out = {
+        category: cat,
+        card: best_card_for_category(new_db, cat)
+      },
+        spend = categories_by_spend.find(el => el.category === cat);
+      if(spend === undefined) spend = 0;
+      else spend = spend.spend;
+      out.rewards = rewards(out.card, {category: cat, amount: spend});
+      base.push(out);
+    }
+  });
+  
+  base.sort((a, b) => (b.rewards-a.rewards));
+
+  return (
+    <Card>
+      <CardContent>
+        {
+          (transactions.length === 0 ? (
+            <Typography variant="subtitle2" className="text-align-center">
+              No spending yet recorded.
+            </Typography>
+            ) : (
+            <>
+              <Typography variant="h4" className="text-align-center">
+                I'd like to build a&nbsp;
+                <Select value={baseSize} onChange={(e) => setBaseSize(e.target.value)} style={{fontSize:'2.125rem'}}>
+                  {
+                    [1,2,3,4,5,6].map(ind => (
+                      <MenuItem key={ind} value={ind}>{ind}-card</MenuItem>
+                    ))
+                  }
+                </Select>
+                &nbsp;base:
+              </Typography>
+              <br />
+              <TableContainer component={Paper} variant="outlined" style={{maxWidth:Math.min(window.innerWidth - 64, 615)}}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Category</TableCell>
+                      <TableCell>Card</TableCell>
+                      <TableCell align="right">Projected Rewards</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {
+                      base.map((el, ind) => (
+                        <TableRow key={ind}>
+                          <TableCell>{el.category}</TableCell>
+                          <TableCell>{el.rewards === 0 ? 'N/A' : el.card.issuer + ' ' + el.card.name}</TableCell>
+                          <TableCell align="right"><b>{format_money(el.rewards)}</b></TableCell>
+                        </TableRow>
+                      ))
+                    }
+                    <TableRow style={{fontStyle:'italic'}}>
+                      <TableCell>Total</TableCell>
+                      <TableCell>Annual fee{baseSize > 1 ? 's' : ''}: {format_money(total_af, true)}</TableCell>
+                      <TableCell align='right'><b>{format_money(base.reduce((prev, next) => { return {rewards: prev.rewards+next.rewards}}).rewards-total_af)}</b></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          ))
+        }
+      </CardContent>
+    </Card>
+  );
+}
+
+function Leftbar({ accounts, summary, openAccountDialog }){
+  return (
+    <div className="sidebar sidebar-left">
+      <div className="sidebar-left-padded">
+        <Typography variant="overline" className="flex-space-between">
+          Net Worth
+          <Button variant="outlined" onClick={openAccountDialog}>+</Button>
+        </Typography>
+        <Typography variant="h3">{format_money(summary.net_worth, true)}</Typography>
+        <Typography variant="subtitle2" color="primary" className="flex-space-between">
+          <div>Assets</div>
+          <div>{format_money(summary.assets, true)}</div>
+        </Typography>
+        <LinearProgress variant="determinate" value={100*(summary.assets / ((summary.assets-summary.liabilities)||1))} className="mb-2" />
+        <Typography variant="subtitle2" color="secondary" className="flex-space-between">
+          <div>Liabilities</div>
+          <div>{format_money(summary.liabilities, true)}</div>
+        </Typography>
+        <LinearProgress variant="determinate" value={Math.abs(100*(summary.liabilities / ((summary.assets-summary.liabilities)||1)))} color="secondary" />
+      </div>
+      <br />
+      <AccountsAccordion name="Cash" accounts={accounts.filter(acc => (acc.type === 'Checking' || acc.type === 'Savings'))} />
+      <AccountsAccordion name="Credit" accounts={accounts.filter(acc => (acc.type === 'Credit Card'))} />
+      <AccountsAccordion name="Investment" accounts={accounts.filter(acc => (acc.type === 'Investment'))} />
+      <AccountsAccordion name="Loan" accounts={accounts.filter(acc => (acc.type === 'Loan'))} />
+      <AccountsAccordion name="Other" accounts={accounts.filter(acc => (acc.type === 'Other'))} />
+    </div>
+  );
+}
+
+function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog }){
+  const [hover, setHover] = useState(),
+    [tooltip, setTooltip] = useState();
+
+  const month = new Date().getMonth(),
+    spendingData = [
+      {title: 'Restaurants',            value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Restaurants'))),            color: '#689f38'},
+      {title: 'Travel / Entertainment', value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Travel / Entertainment'))), color: '#ffca28'},
+      {title: 'Groceries',              value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Groceries'))),              color: '#ff9800'},
+      {title: 'Gas',                    value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Gas'))),                    color: '#00838f'},
+      {title: 'Online shopping',        value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Online shopping'))),        color: '#7b1fa2'},
+      {title: 'Other',                  value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Other'))),                  color: '#1a237e'}
+    ];
+
+  const shortmonth = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May',
+    'Jun', 'Jul', 'Aug', 'Sep', 'Oct',
+    'Nov', 'Dec'
+  ];
+
+  /* TODO: This adds multiple data points for transactions which occurred on the same day */
+  let nw = 0,
+    tmp,
+    historicalDataRaw = transactions.sort((a, b) => (new Date(a.date) - new Date(b.date))).map((el) => {
+      nw += el.amount;
+      tmp = new Date(el.date);
+      return {
+        date: el.date,
+        x: `${tmp.getDate()}-${shortmonth[tmp.getMonth()]}-${tmp.getFullYear()-2000}`,
+        y: nw
       };
-    } else {
-      this.state = JSON.parse(state);
-      this.update_everything();
+    }),
+    historicalData = [];
+
+  historicalDataRaw.forEach(point => {
+    let el = historicalData.find(el => is_same_day(el.date, point.date));
+    if(el === undefined) historicalData.push(point);
+    else if(point.y > el.y){
+      historicalData.splice(historicalData.indexOf(el), 1);
+      historicalData.push(point);
     }
+  });
 
-    this.view_names = {
-      'Accounts': {index:0,icon:(<ListIcon/>)},
-      'Transactions': {index:1,icon:(<AccountBalanceIcon/>)},
-      'Rewards': {index:2,icon:(<CreditCardIcon/>)},
-      'CC Simulator': {index:3,icon:(<AssessmentIcon/>)}
-    };
-
-    this.change_view = this.change_view.bind(this);
-    this.add_new_transaction = this.add_new_transaction.bind(this);
-    this.remove_transaction = this.remove_transaction.bind(this);
-    this.change_row = this.change_row.bind(this);
-    this.change_card_tab = this.change_card_tab.bind(this);
-    this.change_spend_tab = this.change_spend_tab.bind(this);
-    this.close_card_dialog = this.close_card_dialog.bind(this);
-    this.remove_card = this.remove_card.bind(this);
-    this.change_timeframe = this.change_timeframe.bind(this);
-
-    this.update_everything = this.update_everything.bind(this);
-
-    this.set_recommended_next_card = this.set_recommended_next_card.bind(this);
-
-    this.open_card_dialog = this.open_card_dialog.bind(this);
+  function has_spending_data(){
+    return (sum_all(spendingData, 'value', () => true) > 0);
   }
-  componentDidMount(){
-    window.addEventListener('resize', ()=>{
-      this.setState({
-        drawer_is_permanent: (window.innerWidth >= 900)
+
+  return (
+    <div className="mainview">
+      <br />
+      <View number={0} view={view}>
+        <Card className="fullwidth">
+          <CardContent>
+            <Typography variant="overline">Transactions</Typography>
+            <TransactionList transactions={transactions} max={2} paginate={false} />
+            <Button
+              variant="outlined"
+              color="secondary"
+              fullWidth
+              onClick={() => openTransactionDialog() }
+              disabled={accounts.length === 0}
+            >
+              Add New
+            </Button>
+            <br />
+            <br />
+            <Button
+              variant="outlined"
+              color="primary"
+              fullWidth
+              onClick={() => setView(1) }
+            >
+              See All
+            </Button>
+          </CardContent>
+        </Card>
+        <br />
+        <div className="flex-space-between">
+          <Card className="flex-grow mr-2">
+            <CardContent style={{height:'200px'}}>
+              <Typography variant="overline">Cash Flow</Typography>
+              <br />
+              <br />
+              <div>
+                <Typography variant="subtitle2" color="primary" className="flex-space-between">
+                  <div>Income</div>
+                  <div>{format_money(summary.income, true)}</div>
+                </Typography>
+                <LinearProgress variant="determinate" value={Math.min(100, 100*summary.income/(summary.net_worth||1))} style={{height:'30px'}} />
+                <br />
+                <Typography variant="subtitle2" color="secondary" className="flex-space-between">
+                  <div>Expenses</div>
+                  <div>{format_money(summary.expenses, true)}</div>
+                </Typography>
+                <LinearProgress variant="determinate" value={Math.min(100, Math.abs(100*summary.expenses/(summary.net_worth||1)))} style={{height:'30px'}} color="secondary" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="flex-grow ml-2" style={{maxWidth:'50%'}}>
+            <CardContent style={{height:'200px'}}>
+              <Typography variant="overline">Spending</Typography>
+              <div data-tip=''>
+                <PieChart
+                  radius={30}
+                  lineWidth={15}
+                  viewBoxSize={[120, 65]}
+                  center={[60, 65/2]}
+                  data={spendingData}
+                  label={() => (has_spending_data() ? format_money(Math.abs(summary.expenses)) : 'None yet.')}
+                  labelStyle={{
+                    fontSize: '0.35rem',
+                    fontFamily: 'Roboto, sans-serif',
+                    fill: '#333',
+                  }}
+                  labelPosition={0}
+                  onMouseOver={(e, ind) => setHover(`${spendingData[ind].title}: ${format_money(spendingData[ind].value)}`)}
+                  onMouseOut={() => setHover(null)}
+                />
+                <ReactTooltip place="top" type="dark" effect="float" getContent={() => hover} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <br />
+        <Card>
+          <CardContent style={historicalData[0]===undefined||historicalData[0].length===0?{}:{minHeight:'200px'}} data-tip=''>
+            <Typography variant="overline">Historical Net Worth</Typography>
+            {
+              (historicalData[0]===undefined||historicalData[0].length === 0 ? (
+                <Typography variant="subtitle2" className="text-align-center">
+                  <br />
+                  No data yet.
+                </Typography>
+              ) : (
+                <AreaChart
+                  width={Math.min(window.innerWidth - 64, 615)}
+                  height={200}
+                  mouseOverHandler={(d, e) => setTooltip(format_money(d.y, true))}
+                  mouseOutHandler={(d, e) => setTooltip()}
+                  axes
+                  axisLabels={{x: 'Date', y: 'Net Worth'}}
+                  xType="time"
+                  xTicks={3}
+                  dataPoints
+                  interpolate="cardinal"
+                  data={[historicalData]}
+                />
+              ))
+            }
+            <ReactTooltip place="top" type="dark" effect="float" getContent={() => tooltip} />
+          </CardContent>
+        </Card>
+      </View>
+      <View number={1} view={view}>
+        <Button
+          variant="contained"
+          color="secondary"
+          fullWidth
+          onClick={() => openTransactionDialog() }
+          disabled={accounts.length === 0}
+        >
+          Add New
+        </Button>
+        <br />
+        <br />
+        <TransactionList transactions={transactions} max={5} paginate={true} />
+      </View>
+      <View number={2} view={view}>
+        <CardSimulator summary={summary} accounts={accounts} transactions={transactions} />
+      </View>
+      <br />
+    </div>
+  );
+}
+
+function Rightbar({ summary, accounts, transactions }){
+  const REWARDS_TIMESCALE_MONTH = 0,
+    REWARDS_TIMESCALE_YTD = 1,
+    REWARDS_TIMESCALE_ALL = 2;
+
+  const [hover, setHover] = useState(),
+    [rewardsTimescale, setRewardsTimescale] = useState(REWARDS_TIMESCALE_MONTH);
+
+  const db = collapse_object(accounts_db['Credit Card']);
+
+  const categories = [
+    "Restaurants",
+    "Travel / Entertainment",
+    "Groceries",
+    "Gas",
+    "Online shopping",
+    "Other"
+  ];
+
+  function rewards(card, trans){
+    let cat = trans.category;
+    if(categories.indexOf(cat) === -1) return 0;
+    if(cat === 'Travel / Entertainment') cat = 'Entertainment';
+    return Math.abs(trans.amount * card[cat.toLowerCase()] * card.conversion);
+  }
+
+  function sort_cards_by_rewards(){
+    let out = db.slice();
+    out.forEach(card => {
+      let tot = -card.fee;
+      transactions.forEach(trans => {
+        tot += rewards(card, trans);
       });
+      card.total_rewards = tot;
     });
-    window.addEventListener('hashchange', ()=>{
-      if(location.hash.indexOf('setup-start') === -1) this.change_view(decodeURIComponent(location.hash.slice(1)));
+    out.sort((a, b) => {
+      return b.total_rewards-a.total_rewards;
     });
-    // this.update_everything(); // XXX: Debug
+    return out;
   }
-  change_view(name){
-    this.setState({
-      view: this.view_names[name].index,
-      view_name: name
-    }, ()=>{
-      location.hash = name;
-      window.scrollTo(0, 0);
-    });
+
+  let base = sort_cards_by_rewards(),
+    rec = base[0],
+    i = 0;
+
+  while(accounts.find(el => (el.issuer===rec.issuer&&el.name===rec.name))){
+    rec = base[++i];
   }
-  add_new_transaction(){
-    this.setState({
-      rows: [
-        ...this.state.rows,
-        {id: (this.state.rows.length===0?0:this.state.rows[this.state.rows.length-1].id+1), date: new Date(Date.now()), name: 'Double click to edit', amount: 0, card: this.state.card_data[0].nickname, category: 'Other'}
-      ]
-    });
-  }
-  remove_transaction(id){
-    let rows = this.state.rows.slice();
-    rows.forEach((row, ind)=>{
-      if(row.id === id.row.id) rows.splice(ind, 1);
-    });
-    this.setState({rows}, this.update_everything);
-  }
-  change_row(params, evt){
-    if(params.row === undefined) params.row = this.state.rows[params.id];
-    let new_row = JSON.parse(JSON.stringify(params.row));
-    new_row[params.field] = params.value;
-    this.setState({
-      rows: [
-        ...this.state.rows.slice(0, params.id),
-        new_row,
-        ...this.state.rows.slice(params.id+1)
-      ]
-    }, this.update_everything);
-  }
-  change_card_tab(evt, card_tab){
-    this.setState({card_tab});
-  }
-  change_spend_tab(evt, spend_tab){
-    this.setState({spend_tab});
-  }
-  close_card_dialog(card, nickname){
-    if(card !== undefined){
-      let cpy = JSON.parse(JSON.stringify(card));
-      cpy.nickname = (nickname===''?card.name:nickname);
-      cpy.outstanding_debt = 0;
-      cpy.rewards = 0;
-      cpy.balance = 0;
-      this.setState({
-        card_data: [
-          ...this.state.card_data,
-          cpy
-        ]
-      });
-    }
-    this.setState({
-      card_dialog_open: false
-    });
-  }
-  remove_card(card, ind){
-    let card_data = this.state.card_data.filter((itr)=>{
-      return card.nickname !== itr.nickname;
-    });
-    this.setState({card_data}, this.update_everything);
-  }
-  change_timeframe(timeframe){
-    // Go go gadget terrible hack
-    //
-    // This is because changing this affects
-    //   the "next recommended card" calculation,
-    //   meaning by delaying this with a timeout
-    //   we avoid a race condition.
-    this.setState({timeframe}, ()=>{
-      setTimeout(this.update_everything, 10);
-    });
-  }
- 
-  compute_rewards(row){
-    if(row.card.type === 'Debit') return 0;
 
-    let card = this.state.card_data.find(el=>el.nickname===row.card);
-    if(card === undefined) return 0;
+  /***/
 
-    return (-row.amount) * card[row.category.toLowerCase()] * card.conversion;
-  }
-  update_everything(cd){
-    let out = {
-      total_assets: 0,
-      outstanding_debt: 0,
-      gross_inflow: 0,
-      gross_outflow: 0,
-
-      total_rewards: 0,
-      best_performer: undefined,
-
-      card_data: cd ?? this.state.card_data,
-      category_data: this.state.category_data
-    },
-      month = new Date().getMonth(), 
-      year = new Date().getFullYear();
-    out.card_data.forEach((card)=>{
-      card.total_spend = 0;
-      card.outstanding_debt = 0;
-      card.rewards = 0;
-      if(card.type === 'Debit') card.balance = 0;
-    });
-    out.category_data.forEach((cat)=>{
-      cat.total_spend = 0;
-      cat.rewards = 0;
-    });
-    this.state.rows.forEach((row)=>{
-      out.total_assets += row.amount;
-
-      let card = out.card_data.find(el=>el.nickname===row.card);
-      if(card !== undefined && card.type === 'Debit'){
-        card.balance += row.amount;
-      }
-
-      if(this.state.timeframe === 'month' &&
-         new Date(row.date).getMonth() !== month) return;
-
-      if(this.state.timeframe === 'ytd' &&
-         new Date(row.date).getFullYear() !== year) return;
-
-      if(row.amount > 0){
-        out.gross_inflow += row.amount;
-      } else {
-        out.gross_outflow += row.amount;
-      }
-
-      if(card !== undefined){
-        if(row.amount < 0) card.total_spend += Math.abs(row.amount);
-        if(card.type !== 'Debit') card.outstanding_debt += row.amount;
-        card.rewards += this.compute_rewards(row);
-      }
-
-      let cat = out.category_data.find(el=>el.category===row.category);
-      if(row.amount < 0) cat.total_spend += Math.abs(row.amount);
-      cat.rewards += this.compute_rewards(row);
-    });
-    out.card_data.forEach((card)=>{
-      if(card.type !== 'Debit'){
-        out.outstanding_debt += card.outstanding_debt;
-
-        if(card.rewards > 0 &&
-           (out.best_performer === undefined ||
-            out.best_performer.rewards < card.rewards)){
-          out.best_performer = card;
+  let chartData = [];
+  transactions.forEach(trans => {
+    if(trans.account.type !== 'Credit Card') return;
+    
+    let card = chartData.find(el => el.title === trans.account.name);
+    if((rewardsTimescale === REWARDS_TIMESCALE_MONTH &&
+        new Date(trans.date).getMonth() === new Date().getMonth()) ||
+       (rewardsTimescale === REWARDS_TIMESCALE_YTD &&
+        trans.date.getFullYear() === new Date().getFullYear()) ||
+       (rewardsTimescale === REWARDS_TIMESCALE_ALL)){
+      if(rewards(trans.account.props, trans) > 0){
+        if(card === undefined){
+          chartData.push({
+            title: trans.account.name,
+            value: rewards(trans.account.props, trans),
+            color: string_to_color(trans.account.name)
+          });
+        } else {
+          card.value += rewards(trans.account.props, trans);
         }
       }
-    });
-    out.category_data.forEach((cat)=>{
-      out.total_rewards += cat.rewards;
-    });
-    this.setState({...out});
-    // this.forceUpdate();
-  }
-  set_recommended_next_card(recommended_next_card){
-    should_rerender = false;
-    this.setState({recommended_next_card});
-  }
-  open_card_dialog(){
-    this.setState({card_dialog_open:true});
-  }
-
-  componentDidUpdate(prevProps, prevState, snapshot){
-    if(this.props.cards_from_setup.length > prevProps.cards_from_setup.length){
-      this.setState({
-        card_data: this.props.cards_from_setup
-      });
     }
-    localStorage.setItem('Main_state', JSON.stringify(this.state));
-  }
-  shouldComponentUpdate(){
-    if(should_rerender) return true;
-    should_rerender = true;
-    return false;
-  }
-  render(){
-    return (
-      <div style={this.props.visible?{}:{display:'none',visibility:'hidden',opacity:'0'}}>
-        <ViewController view_name={this.state.view_name} view_names={this.view_names} changeView={this.change_view} timeframe={this.state.timeframe} change_timeframe={this.change_timeframe} />
-        <br />
+  });
+  window.chartData = chartData; /* XXX: This is just terrible */
 
-        <AddCardDialog open={this.state.card_dialog_open} onClose={this.close_card_dialog} existing_cards={this.state.card_data} />
+  /***/
 
-        <div style={this.state.drawer_is_permanent?{marginLeft:'169px'}:{}}>
-          <Container maxWidth="md">
-            <View number={0} view={this.state.view}>
-              <AccountsView
-                name={this.props.name}
-                total_assets={this.state.total_assets}
-                outstanding_debt={this.state.outstanding_debt}
-                gross_inflow={this.state.gross_inflow}
-                gross_outflow={this.state.gross_outflow}
-                change_view={this.change_view}
-                add_new_transaction={this.add_new_transaction}
-                open_card_dialog={this.open_card_dialog}
-                card_data={this.state.card_data}
-                remove_card={this.remove_card}
-                spend_tab={this.state.spend_tab}
-                change_spend_tab={this.change_spend_tab}
-                category_data={this.state.category_data}
-              />
-            </View>
+  /* TODO: This breaks if the statement date is on the 29th or later of any month */
+  let upcomingStatements = accounts.filter(el => (el.type === 'Credit Card' && in_range(new Date(el.date).getDate()-(new Date()).getDate(), 0, 7)))
 
-            <View number={1} view={this.state.view}>
-              <TransactionsView
-                rows={this.state.rows}
-                change_row={this.change_row}
-                add_new_transaction={this.add_new_transaction}
-                remove_transaction={this.remove_transaction}
-                card_data={this.state.card_data}
-              />
-            </View>
-
-            <View number={2} view={this.state.view}>
-              <RewardsView
-                total_rewards={this.state.total_rewards}
-                best_performer={this.state.best_performer}
-                outstanding_debt={this.state.outstanding_debt}
-                recommended_next_card={this.state.recommended_next_card}
-                card_data={this.state.card_data}
-                remove_card={this.remove_card}
-                open_card_dialog={this.open_card_dialog}
-                card_tab={this.state.card_tab}
-                change_card_tab={this.change_card_tab}
-                category_data={this.state.category_data}
-              />
-            </View>
-
-            <View number={3} view={this.state.view}>
-              <CardSimulatorView
-                card_data={this.state.card_data}
-                category_data={this.state.category_data}
-                compute_rewards={this.compute_rewards}
-                set_recommended_next_card={this.set_recommended_next_card}
-              />
-            </View>
-          </Container>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <div className="sidebar sidebar-right">
+      <Card>
+        <CardContent>
+          <Typography variant="overline">Upcoming Statement Date{upcomingStatements.length === 1 ? '' : 's'}</Typography>
+          <br />
+          <br />
+          <div className="flex-center text-align-center">
+            {
+              (upcomingStatements.length === 0 ? (
+                <Typography variant="subtitle2">
+                  No upcoming statement dates.
+                </Typography>
+              ) : (<></>))
+            }
+            {
+              upcomingStatements.map((card, ind) => (
+                <div key={ind}>
+                  <img width={300} src={card.props.image} className="card-image" alt="Next card due" />
+                  <Typography variant="subtitle1">{card.issuer}</Typography>
+                  <Typography variant="h6">{card.name}</Typography>
+                  <Typography variant="subtitle2">{new Date().getMonth()+1}/{new Date(card.date).getDate()}/{new Date().getFullYear()}</Typography>
+                  <Typography variant="subtitle2">Balance: {format_money(-card.balance)}</Typography>
+                </div>
+              ))
+            }
+          </div>
+        </CardContent>
+      </Card>
+      <br />
+      <Card>
+        <CardContent>
+          <Typography variant="overline">Recommended Next Card</Typography>
+          <br />
+          <br />
+          <div className="flex-center text-align-center">
+            {
+              (summary.expenses === 0 ? (
+                  <Typography variant="subtitle2">
+                    No recommendation yet.
+                  </Typography>
+                ) : (
+                  <div>
+                    <img width={300} src={rec.image} className="card-image" alt="Recommended next card" />
+                    <Typography variant="subtitle1">{rec.issuer}</Typography>
+                    <Typography variant="h6">{rec.name}</Typography>
+                    <Typography variant="subtitle2">Est. Return: {format_money(rec.total_rewards)}</Typography>
+                  </div>
+                )
+              )
+            }
+          </div>
+        </CardContent>
+      </Card>
+      <br />
+      <Card>
+        <CardContent>
+          <Typography variant="overline">Rewards</Typography>
+          <Tabs value={rewardsTimescale} onChange={(e, n) => setRewardsTimescale(n)}>
+            <Tab label="Month" className="small-tab" />
+            <Tab label="YTD" className="small-tab" />
+            <Tab label="All Time" className="small-tab" />
+          </Tabs>
+          <div data-tip=''>
+            {
+              (chartData.length === 0 ? (
+                <>
+                  <br />
+                  <Typography variant="subtitle2" className="text-align-center">
+                    None yet.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                    <PieChart
+                      radius={30}
+                      lineWidth={15}
+                      viewBoxSize={[120, 65]}
+                      center={[60, 65/2]}
+                      data={chartData}
+                      label={()=>{return (chartData.length === 0 ? 'None yet.' : format_money(sum_all(chartData, 'value', () => true)))}}
+                      labelStyle={{
+                        fontSize: '0.35rem',
+                        fontFamily: 'Roboto, sans-serif',
+                        fill: '#333',
+                      }}
+                      labelPosition={0}
+                      onMouseOver={(e, ind) => setHover(chartData[ind].title + ': ' + format_money(chartData[ind].value))}
+                      onMouseOut={() => setHover(null)}
+                    />
+                    <ReactTooltip place="top" type="dark" effect="float" getContent={() => hover} />
+                  </>
+                )
+              )
+            }
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
-/*
- * ENTRY POINT
- */
-export default class App extends React.Component {
-  constructor(props){
-    super(props);
-    let state = localStorage.getItem('App_state');
-    if(state === null){
-      this.state = {
-        view: 0,
-        // view: 1, // XXX: Debug
-        name: '',
-        cards: []
-        // cards: [{...card_db.find(el=>el.name==='Total Checking'),nickname:'Total Checking',outstanding_debt:0,rewards:0,balance:0}] // XXX: Debug
-      };
-    } else this.state = JSON.parse(state);
-    this.next_view = this.next_view.bind(this);
-    this.store_cards = this.store_cards.bind(this);
-  }
-  componentDidUpdate(){
-    localStorage.setItem('App_state', JSON.stringify(this.state));
-  }
-  next_view(data){
-    this.setState({
-      view: this.state.view+1,
-      ...data
+export default function App(){
+  const [accounts, setAccounts] = useState(local_storage_get('accounts') || []),
+    [transactions, setTransactions] = useState(local_storage_get('transactions') || []),
+    [summary, setSummary] = useState({
+      net_worth: 0,
+      assets: 0,
+      liabilities: 0,
+      income: 0,
+      expenses: 0
     });
-    window.scrollTo(0, 0);
+
+  const [view, setView] = useState(0),
+        [accountDialog, setAccountDialog] = useState(false),
+        [transactionDialog, setTransactionDialog] = useState(false);
+
+  function addAccount(type, account, date, balance){
+    let account_class = new Account(type, account, date, balance);
+
+    setAccounts([
+      ...accounts,
+      account_class
+    ]);
+
+    if(balance !== 0){
+      setTransactions([
+        ...transactions,
+        new Transaction(new Date(), 'Starting Balance', 'Starting Balance', account_class, undefined, balance)
+      ]);
+    }
   }
-  store_cards(cards){
-    this.setState({cards});
+  function addTransaction(date, name, category, account, paymentAccount, amount){
+    setTransactions([
+      ...transactions,
+      new Transaction(date, name, category, account, paymentAccount, amount)
+    ]);
   }
-  render(){
-    return (
-      <div>
-        <Setup visible={this.state.view===0} next_view={this.next_view} store_cards={this.store_cards} />
-        <Main visible={this.state.view===1} name={this.state.name} cards_from_setup={this.state.cards} />
-      </div>
-    );
-  }
+
+  useEffect(() => {
+    setSummary({
+      net_worth:   sum_all(accounts, 'balance', (next) => true),
+      assets:      sum_all(accounts, 'balance', (next) => next.balance > 0),
+      liabilities: sum_all(accounts, 'balance', (next) => next.balance < 0),
+      income: summary.income,
+      expenses: summary.expenses
+    });
+  }, [accounts]);
+
+  useEffect(() => {
+    const month = new Date().getMonth();
+
+    let new_accounts = accounts.slice(),
+      new_trans = transactions.sort((a, b) => b.date - a.date),
+      new_summary = {
+        net_worth: summary.net_worth,
+        assets: summary.assets,
+        liabilities: summary.liabilities,
+        income: 0,
+        expenses: 0
+      };
+    
+    new_accounts.forEach(acc => {
+      acc.balance = 0;
+    });
+
+    new_trans.forEach(trans => {
+      let acc = new_accounts.find((el) => (el.id === trans.account.id));
+      if(acc === undefined) return;
+      acc.balance += trans.amount;
+
+      if(trans.category === 'Payment'){
+        new_accounts.find((el) => (el.id === trans.paymentAccount.id)).balance -= trans.amount;
+      }
+
+      if(new Date(trans.date).getMonth() === month){
+        if(trans.amount > 0) new_summary.income += trans.amount;
+        else new_summary.expenses += trans.amount;
+      }
+    });
+
+    setAccounts(new_accounts);
+    setTransactions(new_trans);
+    setSummary(new_summary);
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('accounts', JSON.stringify(accounts));
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }, [accounts, transactions]);
+
+  return (
+    <>
+      <AccountDialog isOpen={accountDialog} addAccount={addAccount} close={() => setAccountDialog(false)} />
+      <TransactionDialog accounts={accounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} />
+
+      <NavigationController view={view} setView={setView} />
+
+      <Grid
+        container
+        justifyContent="space-between"
+      >
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={() => setTransactionDialog(true)} />
+        <Rightbar summary={summary} accounts={accounts} transactions={transactions} />
+      </Grid>
+    </>
+  );
 }

@@ -7,10 +7,11 @@ A simple budgeting webapp to keep tabs on how your money moves.
 ## Features
 
 - Transaction registry
-- Spending breakdown by account and category
+- Spending breakdown by category
 - Automatic credit card rewards calculation
-- Rewards breakdown by card and category
-- Credit card simulator/recommendations based on your spending habits
+- Rewards breakdown by card
+- Statement date tracker
+- Credit card simulator + recommendations based on your spending habits
 - Runs completely offline, with persistent storage provided by `localStorage`
 - Built with mobile in mind
 
@@ -18,23 +19,10 @@ A simple budgeting webapp to keep tabs on how your money moves.
 
 Main page:
 
-![1](https://github.com/Cubified/money/blob/main/screenshots/1.png)
+![1](https://github.com/Cubified/money/blob/main/screenshots/new1.png)
 
-Transactions:
-
-![2](https://github.com/Cubified/money/blob/main/screenshots/2.png)
-
-Rewards:
-
-![3](https://github.com/Cubified/money/blob/main/screenshots/3.png)
-
-Simulator:
-
-![4](https://github.com/Cubified/money/blob/main/screenshots/4.png)
-
-Breakdown:
-
-![5](https://github.com/Cubified/money/blob/main/screenshots/5.png)
+Credit card simulator:
+![2](https://github.com/Cubified/money/blob/main/screenshots/new2.png)
 
 ## Building Locally
 
