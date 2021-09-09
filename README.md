@@ -1,6 +1,8 @@
+![Money](https://github.com/Cubified/money/blob/main/public/logo192.png)
+
 # Money
 
-A simple budgeting webapp to keep tabs on how your money moves.
+A simple personal finance webapp to keep tabs on how your money moves.
 
 ## [Try it Here](https://cubified.github.io/money)
 

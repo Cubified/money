@@ -212,8 +212,9 @@ function NavigationController({ view, setView }){
     <>
       <AppBar position="static" className="appbar">
         <Toolbar>
+          <img src="/money/build/logo.svg" alt="Money" height={48} />
           <Typography variant="h6" className="appbar-head">
-            Money
+            
           </Typography>
           {
             (window.innerWidth > 600 ? (
@@ -651,7 +652,7 @@ function CardSimulator({ summary, accounts, transactions }){
   function rewards(card, trans){
     let cat = trans.category;
     if(categories.indexOf(cat) === -1) return 0;
-    if(cat === 'Travel / Entertainment') cat = 'Entertainment';
+    if(cat === 'Travel / Entertainment') cat = 'Travel';
     return Math.abs(trans.amount * card[cat.toLowerCase()] * card.conversion);
   }
 
@@ -740,7 +741,7 @@ function CardSimulator({ summary, accounts, transactions }){
                 I'd like to build a&nbsp;
                 <Select value={baseSize} onChange={(e) => setBaseSize(e.target.value)} style={{fontSize:'2.125rem'}}>
                   {
-                    [1,2,3,4,5,6].map(ind => (
+                    [1, 2, 3, 4, 5, 6].map(ind => (
                       <MenuItem key={ind} value={ind}>{ind}-card</MenuItem>
                     ))
                   }
@@ -916,14 +917,14 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
               <Typography variant="overline">Spending</Typography>
               <div data-tip=''>
                 <PieChart
-                  radius={30}
-                  lineWidth={15}
-                  viewBoxSize={[120, 65]}
-                  center={[60, 65/2]}
+                  radius={(window.innerWidth <= 600 ? 60 : 30)}
+                  lineWidth={30}
+                  viewBoxSize={[120, (window.innerWidth <= 600 ? 150 : 65)]}
+                  center={[60, (window.innerWidth <= 600 ? 150/2 : 35)]}
                   data={spendingData}
                   label={() => (has_spending_data() ? format_money(Math.abs(summary.expenses)) : 'None yet.')}
                   labelStyle={{
-                    fontSize: '0.35rem',
+                    fontSize: (window.innerWidth <= 600 ? '0.8rem' : '0.4rem'),
                     fontFamily: 'Roboto, sans-serif',
                     fill: '#333',
                   }}
@@ -1010,7 +1011,7 @@ function Rightbar({ summary, accounts, transactions }){
   function rewards(card, trans){
     let cat = trans.category;
     if(categories.indexOf(cat) === -1) return 0;
-    if(cat === 'Travel / Entertainment') cat = 'Entertainment';
+    if(cat === 'Travel / Entertainment') cat = 'Travel';
     return Math.abs(trans.amount * card[cat.toLowerCase()] * card.conversion);
   }
 
@@ -1047,7 +1048,7 @@ function Rightbar({ summary, accounts, transactions }){
     if((rewardsTimescale === REWARDS_TIMESCALE_MONTH &&
         new Date(trans.date).getMonth() === new Date().getMonth()) ||
        (rewardsTimescale === REWARDS_TIMESCALE_YTD &&
-        trans.date.getFullYear() === new Date().getFullYear()) ||
+        new Date(trans.date).getFullYear() === new Date().getFullYear()) ||
        (rewardsTimescale === REWARDS_TIMESCALE_ALL)){
       if(rewards(trans.account.props, trans) > 0){
         if(card === undefined){
@@ -1085,15 +1086,18 @@ function Rightbar({ summary, accounts, transactions }){
               ) : (<></>))
             }
             {
-              upcomingStatements.map((card, ind) => (
-                <div key={ind}>
-                  <img width={300} src={card.props.image} className="card-image" alt="Next card due" />
+              upcomingStatements.map((card, ind) => {
+                let today = new Date(),
+                  statement = new Date(card.date),
+                  difference = statement.getDate()-today.getDate();
+                return (<div key={ind}>
+                  <img width={200} src={card.props.image} className="card-image" alt="Next card due" />
                   <Typography variant="subtitle1">{card.issuer}</Typography>
                   <Typography variant="h6">{card.name}</Typography>
-                  <Typography variant="subtitle2">{new Date().getMonth()+1}/{new Date(card.date).getDate()}/{new Date().getFullYear()}</Typography>
+                  <Typography variant="subtitle2">{today.getMonth()+1}/{statement.getDate()}/{today.getFullYear()} ({(difference === 0 ? 'today' : (difference === 1 ? 'tomorrow' : difference + ' days'))})</Typography>
                   <Typography variant="subtitle2">Balance: {format_money(-card.balance)}</Typography>
-                </div>
-              ))
+                </div>);
+              })
             }
           </div>
         </CardContent>
@@ -1112,7 +1116,7 @@ function Rightbar({ summary, accounts, transactions }){
                   </Typography>
                 ) : (
                   <div>
-                    <img width={300} src={rec.image} className="card-image" alt="Recommended next card" />
+                    <img width={200} src={rec.image} className="card-image" alt="Recommended next card" />
                     <Typography variant="subtitle1">{rec.issuer}</Typography>
                     <Typography variant="h6">{rec.name}</Typography>
                     <Typography variant="subtitle2">Est. Return: {format_money(rec.total_rewards)}</Typography>
@@ -1144,14 +1148,14 @@ function Rightbar({ summary, accounts, transactions }){
               ) : (
                 <>
                     <PieChart
-                      radius={30}
-                      lineWidth={15}
-                      viewBoxSize={[120, 65]}
-                      center={[60, 65/2]}
+                      radius={(window.innerWidth <= 600 ? 60 : 30)}
+                      lineWidth={30}
+                      viewBoxSize={[120, (window.innerWidth <= 600 ? 150 : 65)]}
+                      center={[60, (window.innerWidth <= 600 ? 150/2 : 35)]}
                       data={chartData}
                       label={()=>{return (chartData.length === 0 ? 'None yet.' : format_money(sum_all(chartData, 'value', () => true)))}}
                       labelStyle={{
-                        fontSize: '0.35rem',
+                        fontSize: (window.innerWidth <= 600 ? '0.8rem' : '0.4rem'),
                         fontFamily: 'Roboto, sans-serif',
                         fill: '#333',
                       }}
