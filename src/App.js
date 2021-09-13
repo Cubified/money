@@ -1,3 +1,5 @@
+/*eslint no-restricted-globals: 0*/
+
 import { useState, useEffect } from 'react';
 
 import {
@@ -20,6 +22,7 @@ import {
   IconButton,
   InputLabel,
   LinearProgress,
+  Link,
   List,
   ListItem,
   ListItemIcon,
@@ -36,9 +39,12 @@ import {
   TableRow,
   Tabs,
   TextField,
+  ThemeProvider,
   Toolbar,
   Typography
 } from '@material-ui/core';
+
+import { createTheme } from '@material-ui/core/styles';
 
 import {
   MuiPickersUtilsProvider,
@@ -55,7 +61,14 @@ import {
   ChevronRight,
   CreditCard,
   ExpandMore,
-  Person
+  Person,
+  Restaurant,
+  Flight,
+  LocalGroceryStore,
+  LocalGasStation,
+  ShoppingCart,
+  Atm,
+  AttachMoney
 } from '@material-ui/icons';
 import ListIcon from '@material-ui/icons/List';
 
@@ -198,14 +211,22 @@ function NavigationController({ view, setView }){
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const viewNames = [
+    "Accounts",
     "Overview",
     "Transactions",
     "Simulator"
   ];
   const viewIcons = [
+    (<Person />),
     (<ListIcon />),
     (<AccountBalance />),
     (<CreditCard />)
+  ];
+  const viewRequirements = [
+    window.innerWidth <= 600,
+    true,
+    true,
+    true
   ];
 
   return (
@@ -225,7 +246,7 @@ function NavigationController({ view, setView }){
                   centered>
                   {
                     viewNames.map((el, ind) => (
-                      <Tab key={ind} label={el} />
+                      <Tab key={ind} label={el} style={viewRequirements[ind] ? {} : {display:'none',visibility:'hidden',opacity:0}} />
                     ))
                   }
                 </Tabs>
@@ -237,7 +258,7 @@ function NavigationController({ view, setView }){
                   <List>
                     {
                       viewNames.map((el, ind) => (
-                        <ListItem key={ind} button onClick={() => { setView(ind); setDrawerOpen(false); }}>
+                        <ListItem key={ind} button onClick={() => { setView(ind); setDrawerOpen(false); }} style={viewRequirements[ind] ? {} : {display:'none',visibility:'hidden',opacity:0}}>
                           <ListItemIcon>{viewIcons[ind]}</ListItemIcon>
                           <ListItemText>{el}</ListItemText>
                         </ListItem>
@@ -560,7 +581,18 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
 
 function TransactionList({ transactions, max, paginate }){
   const [page, setPage] = useState(0);
-  
+
+  const categoryIcons = {
+    "Restaurants": (<Restaurant />),
+    "Travel / Entertainment": (<Flight />),
+    "Groceries": (<LocalGroceryStore />),
+    "Gas": (<LocalGasStation />),
+    "Online Shopping": (<ShoppingCart />),
+    "Payment": (<CreditCard />),
+    "Deposit / Withdrawal": (<Atm />),
+    "Other": (<AttachMoney />)
+  };
+
   return (
     <>
       {
@@ -573,12 +605,15 @@ function TransactionList({ transactions, max, paginate }){
         ) : (<></>))
       }
       {
-        (paginate ? transactions.slice(page*max, (page+1)*max) : transactions).map((trans, ind) => {
+        (paginate ? transactions.slice(page*max, (page+1)*max) : transactions).sort((a, b) => (new Date(b.date) - new Date(a.date))).map((trans, ind) => {
           if(ind > max) return (<div key={ind}></div>);
           return (<div key={ind}>
             <Card variant="outlined">
               <CardContent className="flex-space-between">
-                <div>
+                <div className="mr-10">
+                  {categoryIcons[trans.category]}
+                </div>
+                <div className="flex-grow">
                   <Typography variant="overline">{format_date(trans.date)}</Typography>
                   <Typography variant="h6">{trans.name}</Typography>
                 </div>
@@ -595,7 +630,7 @@ function TransactionList({ transactions, max, paginate }){
       { (paginate ? (
         <div className="flex-center">
           <IconButton onClick={() => setPage(page-1)} disabled={page===0}><ChevronLeft /></IconButton>
-          <div>Page {page+1} of {Math.floor(transactions.length/max)+1}</div>
+          <div style={{color:'white'}}>Page {page+1} of {Math.floor(transactions.length/max)+1}</div>
           <IconButton onClick={() => setPage(page+1)} disabled={page===Math.floor(transactions.length/max)}><ChevronRight /></IconButton>
         </div>) : (<></>))
       }
@@ -763,7 +798,13 @@ function CardSimulator({ summary, accounts, transactions }){
                       base.map((el, ind) => (
                         <TableRow key={ind}>
                           <TableCell>{el.category}</TableCell>
-                          <TableCell>{el.rewards === 0 ? 'N/A' : el.card.issuer + ' ' + el.card.name}</TableCell>
+                          <TableCell>
+                            {
+                              (el.rewards === 0 ? <>N/A</> :
+                                  <Link href={el.card.link}>{el.card.issuer} {el.card.name}</Link>
+                              )
+                            }
+                          </TableCell>
                           <TableCell align="right"><b>{format_money(el.rewards)}</b></TableCell>
                         </TableRow>
                       ))
@@ -784,37 +825,60 @@ function CardSimulator({ summary, accounts, transactions }){
   );
 }
 
-function Leftbar({ accounts, summary, openAccountDialog }){
+function QuickActions({ view, setView, openTransactionDialog, setAccountDialog }){
   return (
-    <div className="sidebar sidebar-left">
-      <div className="sidebar-left-padded">
-        <Typography variant="overline" className="flex-space-between">
-          Net Worth
-          <Button variant="outlined" onClick={openAccountDialog}>+</Button>
-        </Typography>
-        <Typography variant="h3">{format_money(summary.net_worth, true)}</Typography>
-        <Typography variant="subtitle2" color="primary" className="flex-space-between">
-          <div>Assets</div>
-          <div>{format_money(summary.assets, true)}</div>
-        </Typography>
-        <LinearProgress variant="determinate" value={100*(summary.assets / ((summary.assets-summary.liabilities)||1))} className="mb-2" />
-        <Typography variant="subtitle2" color="secondary" className="flex-space-between">
-          <div>Liabilities</div>
-          <div>{format_money(summary.liabilities, true)}</div>
-        </Typography>
-        <LinearProgress variant="determinate" value={Math.abs(100*(summary.liabilities / ((summary.assets-summary.liabilities)||1)))} color="secondary" />
-      </div>
-      <br />
-      <AccountsAccordion name="Cash" accounts={accounts.filter(acc => (acc.type === 'Checking' || acc.type === 'Savings'))} />
-      <AccountsAccordion name="Credit" accounts={accounts.filter(acc => (acc.type === 'Credit Card'))} />
-      <AccountsAccordion name="Investment" accounts={accounts.filter(acc => (acc.type === 'Investment'))} />
-      <AccountsAccordion name="Loan" accounts={accounts.filter(acc => (acc.type === 'Loan'))} />
-      <AccountsAccordion name="Other" accounts={accounts.filter(acc => (acc.type === 'Other'))} />
-    </div>
+    <Card className="flex-grow mr-2">
+      <CardContent>
+        <Typography variant="overline">Quick Actions</Typography>
+        <br />
+        <Button variant="contained" color="primary" fullWidth onClick={() => {setView(2); openTransactionDialog()}}>Add a Transaction</Button>
+        <br />
+        <br />
+        <Button variant="contained" color="secondary" fullWidth onClick={() => setAccountDialog(true)}>Add an Account</Button>
+      </CardContent>
+    </Card>
   );
 }
 
-function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog }){
+function LeftbarWrapper({ noClasses, children }){
+  if(noClasses) return (<Card><CardContent>{children}</CardContent></Card>);
+  return (<>{children}</>);
+}
+
+function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
+  if(!visible) return (<></>);
+  return (
+    <LeftbarWrapper noClasses={noClasses}>
+      <div className={noClasses ? "" : "sidebar sidebar-left"}>
+        <div className={noClasses ? "" : "sidebar-left-padded"} style={{color:'white'}}>
+          <Typography variant="overline" className="flex-space-between">
+            Net Worth
+            <Button variant="outlined" onClick={openAccountDialog}>+</Button>
+          </Typography>
+          <Typography variant="h3">{format_money(summary.net_worth, true)}</Typography>
+          <Typography variant="subtitle2" color="primary" className="flex-space-between">
+            <div>Assets</div>
+            <div>{format_money(summary.assets, true)}</div>
+          </Typography>
+          <LinearProgress variant="determinate" value={100*(summary.assets / ((summary.assets-summary.liabilities)||1))} className="mb-2" />
+          <Typography variant="subtitle2" color="secondary" className="flex-space-between">
+            <div>Liabilities</div>
+            <div>{format_money(summary.liabilities, true)}</div>
+          </Typography>
+          <LinearProgress variant="determinate" value={Math.abs(100*(summary.liabilities / ((summary.assets-summary.liabilities)||1)))} color="secondary" />
+        </div>
+        <br />
+        <AccountsAccordion name="Cash" accounts={accounts.filter(acc => (acc.type === 'Checking' || acc.type === 'Savings'))} />
+        <AccountsAccordion name="Credit" accounts={accounts.filter(acc => (acc.type === 'Credit Card'))} />
+        <AccountsAccordion name="Investment" accounts={accounts.filter(acc => (acc.type === 'Investment'))} />
+        <AccountsAccordion name="Loan" accounts={accounts.filter(acc => (acc.type === 'Loan'))} />
+        <AccountsAccordion name="Other" accounts={accounts.filter(acc => (acc.type === 'Other'))} />
+      </div>
+    </LeftbarWrapper>
+  );
+}
+
+function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog, setAccountDialog }){
   const [hover, setHover] = useState(),
     [tooltip, setTooltip] = useState();
 
@@ -865,31 +929,12 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
     <div className="mainview">
       <br />
       <View number={0} view={view}>
-        <Card className="fullwidth">
-          <CardContent>
-            <Typography variant="overline">Transactions</Typography>
-            <TransactionList transactions={transactions} max={2} paginate={false} />
-            <Button
-              variant="outlined"
-              color="secondary"
-              fullWidth
-              onClick={() => openTransactionDialog() }
-              disabled={accounts.length === 0}
-            >
-              Add New
-            </Button>
-            <br />
-            <br />
-            <Button
-              variant="outlined"
-              color="primary"
-              fullWidth
-              onClick={() => setView(1) }
-            >
-              See All
-            </Button>
-          </CardContent>
-        </Card>
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} />
+        <br />
+        <QuickActions view={view} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
+      </View>
+      <View number={1} view={view}>
+        <QuickActions view={view} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
         <br />
         <div className="flex-space-between">
           <Card className="flex-grow mr-2">
@@ -902,13 +947,21 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
                   <div>Income</div>
                   <div>{format_money(summary.income, true)}</div>
                 </Typography>
-                <LinearProgress variant="determinate" value={Math.min(100, 100*summary.income/(summary.net_worth||1))} style={{height:'30px'}} />
+                <LinearProgress variant="determinate" value={Math.min(100, 100*summary.income/(summary.last_month_income||summary.net_worth||1))} style={{height:'30px'}} />
+                <Typography variant="subtitle2" color="primary" className="flex-space-between">
+                  <div>Last Month</div>
+                  <div>{summary.last_month_income ? format_money(summary.last_month_income, true) : 'N/A'}</div>
+                </Typography>
                 <br />
                 <Typography variant="subtitle2" color="secondary" className="flex-space-between">
                   <div>Expenses</div>
                   <div>{format_money(summary.expenses, true)}</div>
                 </Typography>
-                <LinearProgress variant="determinate" value={Math.min(100, Math.abs(100*summary.expenses/(summary.net_worth||1)))} style={{height:'30px'}} color="secondary" />
+                <LinearProgress variant="determinate" value={Math.min(100, Math.abs(100*summary.expenses/(summary.last_month_expenses||summary.net_worth||1)))} style={{height:'30px'}} color="secondary" />
+                <Typography variant="subtitle2" color="secondary" className="flex-space-between">
+                  <div>Last Month</div>
+                  <div>{summary.last_month_expenses ? format_money(summary.last_month_expenses, true) : 'N/A'}</div>
+                </Typography>
               </div>
             </CardContent>
           </Card>
@@ -926,7 +979,8 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
                   labelStyle={{
                     fontSize: (window.innerWidth <= 600 ? '0.8rem' : '0.4rem'),
                     fontFamily: 'Roboto, sans-serif',
-                    fill: '#333',
+                    // fill: '#333',
+                    fill: '#ddd'
                   }}
                   labelPosition={0}
                   onMouseOver={(e, ind) => setHover(`${spendingData[ind].title}: ${format_money(spendingData[ind].value)}`)}
@@ -957,6 +1011,7 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
                   axisLabels={{x: 'Date', y: 'Net Worth'}}
                   xType="time"
                   xTicks={3}
+                  areaColors={["green"]}
                   dataPoints
                   interpolate="cardinal"
                   data={[historicalData]}
@@ -967,7 +1022,7 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
           </CardContent>
         </Card>
       </View>
-      <View number={1} view={view}>
+      <View number={2} view={view}>
         <Button
           variant="contained"
           color="secondary"
@@ -981,7 +1036,7 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
         <br />
         <TransactionList transactions={transactions} max={5} paginate={true} />
       </View>
-      <View number={2} view={view}>
+      <View number={3} view={view}>
         <CardSimulator summary={summary} accounts={accounts} transactions={transactions} />
       </View>
       <br />
@@ -1117,8 +1172,10 @@ function Rightbar({ summary, accounts, transactions }){
                 ) : (
                   <div>
                     <img width={200} src={rec.image} className="card-image" alt="Recommended next card" />
-                    <Typography variant="subtitle1">{rec.issuer}</Typography>
-                    <Typography variant="h6">{rec.name}</Typography>
+                    <Link href={rec.link}>
+                      <Typography variant="subtitle1">{rec.issuer}</Typography>
+                      <Typography variant="h6">{rec.name}</Typography>
+                    </Link>
                     <Typography variant="subtitle2">Est. Return: {format_money(rec.total_rewards)}</Typography>
                   </div>
                 )
@@ -1157,7 +1214,8 @@ function Rightbar({ summary, accounts, transactions }){
                       labelStyle={{
                         fontSize: (window.innerWidth <= 600 ? '0.8rem' : '0.4rem'),
                         fontFamily: 'Roboto, sans-serif',
-                        fill: '#333',
+                        // fill: '#333',
+                        fill: '#ddd'
                       }}
                       labelPosition={0}
                       onMouseOver={(e, ind) => setHover(chartData[ind].title + ': ' + format_money(chartData[ind].value))}
@@ -1183,10 +1241,12 @@ export default function App(){
       assets: 0,
       liabilities: 0,
       income: 0,
-      expenses: 0
+      expenses: 0,
+      last_month_income: 0,
+      last_month_expenses: 0
     });
 
-  const [view, setView] = useState(0),
+  const [view, setView] = useState(window.innerWidth <= 600 ? 0 : 1),
         [accountDialog, setAccountDialog] = useState(false),
         [transactionDialog, setTransactionDialog] = useState(false);
 
@@ -1218,7 +1278,9 @@ export default function App(){
       assets:      sum_all(accounts, 'balance', (next) => next.balance > 0),
       liabilities: sum_all(accounts, 'balance', (next) => next.balance < 0),
       income: summary.income,
-      expenses: summary.expenses
+      expenses: summary.expenses,
+      last_month_income: summary.last_month_income,
+      last_month_expenses: summary.last_month_expenses
     });
   }, [accounts]);
 
@@ -1226,13 +1288,15 @@ export default function App(){
     const month = new Date().getMonth();
 
     let new_accounts = accounts.slice(),
-      new_trans = transactions.sort((a, b) => b.date - a.date),
+      new_trans = transactions.sort((a, b) => (new Date(b.date) - new Date(a.date))),
       new_summary = {
         net_worth: summary.net_worth,
         assets: summary.assets,
         liabilities: summary.liabilities,
         income: 0,
-        expenses: 0
+        expenses: 0,
+        last_month_income: 0,
+        last_month_expenses: 0
       };
     
     new_accounts.forEach(acc => {
@@ -1248,9 +1312,14 @@ export default function App(){
         new_accounts.find((el) => (el.id === trans.paymentAccount.id)).balance -= trans.amount;
       }
 
-      if(new Date(trans.date).getMonth() === month){
+      let d = new Date(trans.date);
+      if(d.getMonth() === month){
         if(trans.amount > 0) new_summary.income += trans.amount;
         else new_summary.expenses += trans.amount;
+      } else if(d.getMonth() === month-1 ||
+        (month === 0 && d.getMonth() === 11)){
+        if(trans.amount > 0) new_summary.last_month_income += trans.amount;
+        else new_summary.last_month_expenses += trans.amount;
       }
     });
 
@@ -1264,8 +1333,28 @@ export default function App(){
     localStorage.setItem('transactions', JSON.stringify(transactions));
   }, [accounts, transactions]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    location.hash = view;
+  }, [view]);
+  window.addEventListener('hashchange', () => {
+    setView(parseInt(location.hash.slice(1)));
+  });
+
+  const theme = createTheme({
+    palette: {
+      type: 'dark',
+      primary: {
+        main: '#45818E'
+      },
+      secondary: {
+        main: '#CD5D7D',
+      }
+    }
+  });
+
   return (
-    <>
+    <ThemeProvider theme={theme}>
       <AccountDialog isOpen={accountDialog} addAccount={addAccount} close={() => setAccountDialog(false)} />
       <TransactionDialog accounts={accounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} />
 
@@ -1275,10 +1364,10 @@ export default function App(){
         container
         justifyContent="space-between"
       >
-        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} />
-        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={() => setTransactionDialog(true)} />
-        <Rightbar summary={summary} accounts={accounts} transactions={transactions} />
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= 600} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={() => setTransactionDialog(true)} setAccountDialog={setAccountDialog} />
+        <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} />
       </Grid>
-    </>
+    </ThemeProvider>
   );
 }

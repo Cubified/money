@@ -1,4 +1,4 @@
-![Money](https://github.com/Cubified/money/blob/main/public/logo192.png)
+![Money](https://github.com/Cubified/money/blob/main/public/logo180.png)
 
 # Money
 
@@ -15,9 +15,12 @@ A simple personal finance webapp to keep tabs on how your money moves.
 - Statement date tracker
 - Credit card simulator + recommendations based on your spending habits
 - Runs completely offline, with persistent storage provided by `localStorage`
+- Dark theme by default
 - Built with mobile in mind
 
 ## Screenshots
+
+These screenshots do not contain the new dark theme and color scheme, but do showcase the site's basic layout on desktop.
 
 Main page:
 
