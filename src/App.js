@@ -57,18 +57,21 @@ import {
 
 import {
   AccountBalance,
+  Atm,
+  AttachMoney,
   ChevronLeft,
   ChevronRight,
+  CloudDone,
   CreditCard,
+  Delete,
+  Edit,
   ExpandMore,
   Person,
   Restaurant,
   Flight,
   LocalGroceryStore,
   LocalGasStation,
-  ShoppingCart,
-  Atm,
-  AttachMoney
+  ShoppingCart
 } from '@material-ui/icons';
 import ListIcon from '@material-ui/icons/List';
 
@@ -178,6 +181,16 @@ class Account {
 
 class Transaction {
   constructor(date, name, category, account, paymentAccount, amount){
+    this.id = (Math.random()*10000).toString();
+
+    this.date = date;
+    this.name = name;
+    this.category = category;
+    this.account = account;
+    this.paymentAccount = (this.category === 'Payment' ? paymentAccount : undefined);
+    this.amount = amount;
+  }
+  update(date, name, category, account, paymentAccount, amount){
     this.date = date;
     this.name = name;
     this.category = category;
@@ -270,7 +283,7 @@ function NavigationController({ view, setView }){
             ))
           }
           <div className="appbar-tail">
-            <Person />
+            <CloudDone data-tip="Data saved locally." />
           </div>
         </Toolbar>
       </AppBar>
@@ -425,7 +438,7 @@ function AccountDialog({ isOpen, addAccount, close }){
   );
 }
 
-function TransactionDialog({ isOpen, accounts, addTransaction, close }){
+function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, setTransRef }){
   const [date, setDate] = useState(new Date()),
     [name, setName] = useState(''),
     [category, setCategory] = useState('Restaurants'),
@@ -455,15 +468,26 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
   }
 
   useEffect(() => {
-    if(isOpen){
+    if(isOpen && !transRef){
       setDate(new Date());
       setName('');
       setCategory('Restaurants');
-      setAccount(accounts[0]);
-      setPaymentAccount(accounts[0]);
+      setAccount(accounts[0].id);
+      setPaymentAccount(accounts[0].id);
       setAmount();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if(transRef){
+      setDate(new Date(transRef.date));
+      setName(transRef.name);
+      setCategory(transRef.category);
+      setAccount(transRef.account.id);
+      if(transRef.category === 'Payment') setPaymentAccount(transRef.paymentAccount.id);
+      setAmount(transRef.amount);
+    }
+  }, [transRef]);
 
   return (
     <Dialog open={isOpen} onClose={close}>
@@ -491,32 +515,36 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
           value={name}
           onChange={(e) => { setNameError(false); setName(e.target.value); }}
         />
+        {
+          (category === 'Starting Balance' ? (<></>) : (<>
+            <br />
+            <br />
+            <FormControl variant="outlined" className="fullwidth">
+              <InputLabel id="category-label">Category</InputLabel>
+              <Select
+                variant="outlined"
+                label="Category"
+                label-id="category-label"
+                value={category}
+                onChange={(e) => setCategory(e.target.value) }
+                fullWidth
+              >
+                  <MenuItem value="Restaurants">Restaurants</MenuItem>
+                  <MenuItem value="Travel / Entertainment">Travel / Entertainment</MenuItem>
+                  <MenuItem value="Groceries">Groceries</MenuItem>
+                  <MenuItem value="Gas">Gas</MenuItem>
+                  <MenuItem value="Online shopping">Online shopping</MenuItem>
+                  <MenuItem value="Payment">Payment / Transfer</MenuItem>
+                  <MenuItem value="Deposit / Withdrawal">Deposit / Withdrawal</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+              </Select>
+            </FormControl>
+          </>))
+        }
         <br />
         <br />
         <FormControl variant="outlined" className="fullwidth">
-          <InputLabel id="category-label">Category</InputLabel>
-          <Select
-            variant="outlined"
-            label="Category"
-            label-id="category-label"
-            value={category}
-            onChange={(e) => setCategory(e.target.value) }
-            fullWidth
-          >
-              <MenuItem value="Restaurants">Restaurants</MenuItem>
-              <MenuItem value="Travel / Entertainment">Travel / Entertainment</MenuItem>
-              <MenuItem value="Groceries">Groceries</MenuItem>
-              <MenuItem value="Gas">Gas</MenuItem>
-              <MenuItem value="Online shopping">Online shopping</MenuItem>
-              <MenuItem value="Payment">Payment</MenuItem>
-              <MenuItem value="Deposit / Withdrawal">Deposit / Withdrawal</MenuItem>
-              <MenuItem value="Other">Other</MenuItem>
-          </Select>
-        </FormControl>
-        <br />
-        <br />
-        <FormControl variant="outlined" className="fullwidth">
-          <InputLabel id="account-label">Account</InputLabel>
+          <InputLabel id="account-label">{category === 'Payment' ? 'Destination' : ''} Account</InputLabel>
           <Select
             variant="outlined"
             label="Account"
@@ -527,7 +555,7 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
           >
             {
               accounts.map((acc, ind) => (
-                <MenuItem key={ind} value={acc}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+                <MenuItem key={ind} value={acc.id}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
               ))
             }
           </Select>
@@ -538,7 +566,7 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
           (category === 'Payment' ? (
             <>
               <FormControl variant="outlined" className="fullwidth">
-                <InputLabel id="payment-account-label">Payment Account</InputLabel>
+                <InputLabel id="payment-account-label">Source Account</InputLabel>
                 <Select
                   variant="outlined"
                   label="Payment Account"
@@ -551,7 +579,7 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
                 >
                   {
                     accounts.map((acc, ind) => (
-                      <MenuItem key={ind} value={acc}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+                      <MenuItem key={ind} value={acc.id}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
                     ))
                   }
                 </Select>
@@ -573,13 +601,13 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close }){
         />
       </DialogContent>
       <DialogActions>
-        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { addTransaction(date, name, category, account, paymentAccount, parseFloat(amount)); close(); }}}>Add</Button>
+        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { addTransaction(date, name, category, accounts.find(el => el.id === account), accounts.find(el => el.id === paymentAccount), parseFloat(amount)); close(); }}}>{transRef ? 'Update' : 'Add'}</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-function TransactionList({ transactions, max, paginate }){
+function TransactionList({ transactions, max, paginate, openTransactionDialog, removeTransaction }){
   const [page, setPage] = useState(0);
 
   const categoryIcons = {
@@ -590,14 +618,15 @@ function TransactionList({ transactions, max, paginate }){
     "Online Shopping": (<ShoppingCart />),
     "Payment": (<CreditCard />),
     "Deposit / Withdrawal": (<Atm />),
-    "Other": (<AttachMoney />)
+    "Other": (<AttachMoney />),
+    "Starting Balance": (<AttachMoney />)
   };
 
   return (
     <>
       {
         (transactions.length === 0 ? (
-          <Typography variant="subtitle1" style={{textAlign:"center",marginBottom:'10px'}}>
+          <Typography variant="subtitle1" style={{textAlign:"center",marginBottom:'10px',color:'white'}}>
             No transactions yet recorded.
             <br />
             <i>To add an account, click the "+" button on the left panel.</i>
@@ -605,7 +634,7 @@ function TransactionList({ transactions, max, paginate }){
         ) : (<></>))
       }
       {
-        (paginate ? transactions.slice(page*max, (page+1)*max) : transactions).sort((a, b) => (new Date(b.date) - new Date(a.date))).map((trans, ind) => {
+        (paginate ? transactions.slice(page*max, (page+1)*max).reverse() : transactions).sort((a, b) => (new Date(b.date) - new Date(a.date))).map((trans, ind) => {
           if(ind > max) return (<div key={ind}></div>);
           return (<div key={ind}>
             <Card variant="outlined">
@@ -620,6 +649,15 @@ function TransactionList({ transactions, max, paginate }){
                 <div className="text-align-right">
                   <Typography variant="h6">{format_money(trans.amount)}</Typography>
                   <Typography variant="overline">{trans.account.issuer==='Other'?'':trans.account.issuer} {trans.account.name}</Typography>
+                </div>
+                <div className="ml-10">
+                  <IconButton onClick={() => openTransactionDialog(trans)}>
+                    <Edit />
+                  </IconButton>
+                  <br />
+                  <IconButton onClick={() => removeTransaction(trans)}>
+                    <Delete />
+                  </IconButton>
                 </div>
               </CardContent>
             </Card>
@@ -765,6 +803,7 @@ function CardSimulator({ summary, accounts, transactions }){
   return (
     <Card>
       <CardContent>
+        <Typography variant="overline">Simulator</Typography>
         {
           (transactions.length === 0 ? (
             <Typography variant="subtitle2" className="text-align-center">
@@ -825,13 +864,13 @@ function CardSimulator({ summary, accounts, transactions }){
   );
 }
 
-function QuickActions({ view, setView, openTransactionDialog, setAccountDialog }){
+function QuickActions({ view, setView, accounts, openTransactionDialog, setAccountDialog }){
   return (
     <Card className="flex-grow mr-2">
       <CardContent>
         <Typography variant="overline">Quick Actions</Typography>
         <br />
-        <Button variant="contained" color="primary" fullWidth onClick={() => {setView(2); openTransactionDialog()}}>Add a Transaction</Button>
+        <Button variant="contained" color="primary" fullWidth disabled={accounts.length===0} onClick={() => {setView(2); openTransactionDialog()}}>Add a Transaction</Button>
         <br />
         <br />
         <Button variant="contained" color="secondary" fullWidth onClick={() => setAccountDialog(true)}>Add an Account</Button>
@@ -878,7 +917,7 @@ function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
   );
 }
 
-function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog, setAccountDialog }){
+function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog, setAccountDialog, removeTransaction }){
   const [hover, setHover] = useState(),
     [tooltip, setTooltip] = useState();
 
@@ -931,10 +970,10 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
       <View number={0} view={view}>
         <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} />
         <br />
-        <QuickActions view={view} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
+        <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
       </View>
       <View number={1} view={view}>
-        <QuickActions view={view} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
+        <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
         <br />
         <div className="flex-space-between">
           <Card className="flex-grow mr-2">
@@ -1034,7 +1073,7 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
         </Button>
         <br />
         <br />
-        <TransactionList transactions={transactions} max={5} paginate={true} />
+        <TransactionList transactions={transactions} max={5} paginate={true} openTransactionDialog={openTransactionDialog} removeTransaction={removeTransaction} />
       </View>
       <View number={3} view={view}>
         <CardSimulator summary={summary} accounts={accounts} transactions={transactions} />
@@ -1244,7 +1283,8 @@ export default function App(){
       expenses: 0,
       last_month_income: 0,
       last_month_expenses: 0
-    });
+    }),
+    [transRef, setTransRef] = useState();
 
   const [view, setView] = useState(window.innerWidth <= 600 ? 0 : 1),
         [accountDialog, setAccountDialog] = useState(false),
@@ -1266,12 +1306,34 @@ export default function App(){
     }
   }
   function addTransaction(date, name, category, account, paymentAccount, amount){
-    setTransactions([
+    let trans = new Transaction(date, name, category, account, paymentAccount, amount);
+    if(transRef){
+      let tmp = transactions.slice();
+      let found = transactions.find(el => el.id === transRef.id);
+      tmp.splice(transactions.indexOf(found), 1);
+      tmp.push(trans);
+      setTransactions(tmp);
+    }
+    else setTransactions([
       ...transactions,
-      new Transaction(date, name, category, account, paymentAccount, amount)
+      trans
     ]);
   }
+  function removeTransaction(trans){
+    let tmp = transactions.slice();
+    tmp.splice(transactions.indexOf(trans), 1);
+    setTransactions(tmp);
+  }
 
+  function openTransactionDialog(trans){
+    if(trans) setTransRef(trans);
+    else setTransRef();
+    setTransactionDialog(true);
+  } 
+
+  /*
+   * EFFECT HOOKS
+   */
   useEffect(() => {
     setSummary({
       net_worth:   sum_all(accounts, 'balance', (next) => true),
@@ -1341,6 +1403,9 @@ export default function App(){
     setView(parseInt(location.hash.slice(1)));
   });
 
+  /*
+   * THEME
+   */
   const theme = createTheme({
     palette: {
       type: 'dark',
@@ -1353,10 +1418,13 @@ export default function App(){
     }
   });
 
+  /*
+   * RENDER
+   */
   return (
     <ThemeProvider theme={theme}>
       <AccountDialog isOpen={accountDialog} addAccount={addAccount} close={() => setAccountDialog(false)} />
-      <TransactionDialog accounts={accounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} />
+      <TransactionDialog accounts={accounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} transRef={transRef} setTransRef={setTransRef} />
 
       <NavigationController view={view} setView={setView} />
 
@@ -1365,7 +1433,7 @@ export default function App(){
         justifyContent="space-between"
       >
         <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= 600} />
-        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={() => setTransactionDialog(true)} setAccountDialog={setAccountDialog} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} />
         <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} />
       </Grid>
     </ThemeProvider>
