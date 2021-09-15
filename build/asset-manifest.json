@@ -1,20 +1,20 @@
 {
   "files": {
-    "main.css": "/money/build/static/css/main.fd94346b.chunk.css",
-    "main.js": "/money/build/static/js/main.ce319138.chunk.js",
-    "main.js.map": "/money/build/static/js/main.ce319138.chunk.js.map",
+    "main.css": "/money/build/static/css/main.48fc6bbc.chunk.css",
+    "main.js": "/money/build/static/js/main.9f670d4b.chunk.js",
+    "main.js.map": "/money/build/static/js/main.9f670d4b.chunk.js.map",
     "runtime-main.js": "/money/build/static/js/runtime-main.6cc0f516.js",
     "runtime-main.js.map": "/money/build/static/js/runtime-main.6cc0f516.js.map",
-    "static/js/2.6379693e.chunk.js": "/money/build/static/js/2.6379693e.chunk.js",
-    "static/js/2.6379693e.chunk.js.map": "/money/build/static/js/2.6379693e.chunk.js.map",
+    "static/js/2.43a4ee55.chunk.js": "/money/build/static/js/2.43a4ee55.chunk.js",
+    "static/js/2.43a4ee55.chunk.js.map": "/money/build/static/js/2.43a4ee55.chunk.js.map",
     "index.html": "/money/build/index.html",
-    "static/css/main.fd94346b.chunk.css.map": "/money/build/static/css/main.fd94346b.chunk.css.map",
-    "static/js/2.6379693e.chunk.js.LICENSE.txt": "/money/build/static/js/2.6379693e.chunk.js.LICENSE.txt"
+    "static/css/main.48fc6bbc.chunk.css.map": "/money/build/static/css/main.48fc6bbc.chunk.css.map",
+    "static/js/2.43a4ee55.chunk.js.LICENSE.txt": "/money/build/static/js/2.43a4ee55.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
     "static/js/runtime-main.6cc0f516.js",
-    "static/js/2.6379693e.chunk.js",
-    "static/css/main.fd94346b.chunk.css",
-    "static/js/main.ce319138.chunk.js"
+    "static/js/2.43a4ee55.chunk.js",
+    "static/css/main.48fc6bbc.chunk.css",
+    "static/js/main.9f670d4b.chunk.js"
   ]
 }

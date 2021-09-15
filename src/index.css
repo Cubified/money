@@ -31,6 +31,13 @@ body {
   margin-right: 1em;
 }
 
+.pl-10 {
+  padding-left: 1em;
+}
+.pr-10 {
+  padding-right: 1em;
+}
+
 .fwb {
   font-weight: bold;
 }
@@ -172,14 +179,20 @@ text:not(.label) {
 }
 
 .account {
-  width: calc(100% - 3em);
+  /* width: calc(100% - 3em); */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-left: 1.5em;
-  margin-right: 1.5em;
+  /*margin-left: 1.5em;*/
+  /* margin-right: 1.5em; */
+  margin-right: 1em;
   margin-top: 0.5em;
   margin-bottom: 0.5em;
+}
+.account-image {
+  background: white;
+  margin-left: 0.5em;
+  border-radius: 8px;
 }
 
 .card-image {
@@ -189,6 +202,6 @@ text:not(.label) {
 }
 
 .MuiTab-root.small-tab {
-  width: 108px !important;
-  min-width: 108px !important;
+  width: 33.3% !important;
+  min-width: 33.3% !important;
 }

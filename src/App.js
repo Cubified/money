@@ -162,6 +162,23 @@ function is_same_day(a, b){
     date_a.getFullYear() === date_b.getFullYear());
 }
 
+function conforms_to_timescale(date, timescale){
+  const TIMESCALE_MONTH = 0,
+    TIMESCALE_YTD = 1;
+  // TIMESCALE_ALL = 2;
+
+  let today = new Date();
+
+  switch(timescale){
+    case TIMESCALE_MONTH:
+      return date.getMonth() === today.getMonth();
+    case TIMESCALE_YTD:
+      return date.getFullYear() === today.getFullYear();
+    default:
+      return true;
+  }
+}
+
 /*
  * GENERIC CLASSES
  */
@@ -634,11 +651,10 @@ function TransactionList({ transactions, max, paginate, openTransactionDialog, r
         ) : (<></>))
       }
       {
-        (paginate ? transactions.slice(page*max, (page+1)*max).reverse() : transactions).sort((a, b) => (new Date(b.date) - new Date(a.date))).map((trans, ind) => {
+        (paginate ? transactions.sort((a, b) => (new Date(b.date) - new Date(a.date))).slice(page*max, (page+1)*max) : transactions).map((trans, ind) => {
           if(ind > max) return (<div key={ind}></div>);
           return (<div key={ind}>
-            <Card variant="outlined">
-              <CardContent className="flex-space-between">
+            <Card variant="outlined" className="flex-space-between pl-10">
                 <div className="mr-10">
                   {categoryIcons[trans.category]}
                 </div>
@@ -659,7 +675,6 @@ function TransactionList({ transactions, max, paginate, openTransactionDialog, r
                     <Delete />
                   </IconButton>
                 </div>
-              </CardContent>
             </Card>
             <br />
           </div>);
@@ -668,8 +683,8 @@ function TransactionList({ transactions, max, paginate, openTransactionDialog, r
       { (paginate ? (
         <div className="flex-center">
           <IconButton onClick={() => setPage(page-1)} disabled={page===0}><ChevronLeft /></IconButton>
-          <div style={{color:'white'}}>Page {page+1} of {Math.floor(transactions.length/max)+1}</div>
-          <IconButton onClick={() => setPage(page+1)} disabled={page===Math.floor(transactions.length/max)}><ChevronRight /></IconButton>
+          <div style={{color:'white'}}>Page {page+1} of {Math.ceil(transactions.length/max)}</div>
+          <IconButton onClick={() => setPage(page+1)} disabled={page===Math.ceil(transactions.length/max)-1}><ChevronRight /></IconButton>
         </div>) : (<></>))
       }
     </>
@@ -691,7 +706,12 @@ function AccountsAccordion({ name, accounts }){
             accounts.map((account, ind) => {
               return (<div key={ind}>
                 <div className="account">
-                  <div className="account-left">
+                  {
+                    (account.name.indexOf('Generic') === -1 ? (
+                      <img src={account.props.image} width={96} height={60} className="account-image" />
+                    ) : (<></>))
+                  }
+                  <div className="account-left flex-grow ml-10">
                     <Typography variant="h6" className="fs-11">{account.issuer === 'Other' ? account.name : account.issuer}</Typography>
                     <Typography variant="subtitle1" className="fs-9">{account.issuer === 'Other' ? name + ' Account' : account.name}</Typography>
                   </div>
@@ -919,17 +939,18 @@ function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
 
 function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog, setAccountDialog, removeTransaction }){
   const [hover, setHover] = useState(),
-    [tooltip, setTooltip] = useState();
+    [tooltip, setTooltip] = useState(),
+    [spendingTimescale, setSpendingTimescale] = useState(0);
 
-  const month = new Date().getMonth(),
-    spendingData = [
-      {title: 'Restaurants',            value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Restaurants'))),            color: '#689f38'},
-      {title: 'Travel / Entertainment', value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Travel / Entertainment'))), color: '#ffca28'},
-      {title: 'Groceries',              value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Groceries'))),              color: '#ff9800'},
-      {title: 'Gas',                    value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Gas'))),                    color: '#00838f'},
-      {title: 'Online shopping',        value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Online shopping'))),        color: '#7b1fa2'},
-      {title: 'Other',                  value: Math.abs(sum_all(transactions, 'amount', (next) => (new Date(next.date).getMonth()===month && next.category==='Other'))),                  color: '#1a237e'}
-    ];
+  const spendingData = [
+      {title: 'Restaurants',            value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Restaurants'))),            color: '#689f38'},
+      {title: 'Travel / Entertainment', value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Travel / Entertainment'))), color: '#ffca28'},
+      {title: 'Groceries',              value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Groceries'))),              color: '#ff9800'},
+      {title: 'Gas',                    value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Gas'))),                    color: '#00838f'},
+      {title: 'Online shopping',        value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Online shopping'))),        color: '#7b1fa2'},
+      {title: 'Other',                  value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Other'))),                  color: '#1a237e'}
+    ],
+    totalSpending = spendingData.reduce((prev, next) => {return {value: prev.value+next.value}}, {value:0}).value;
 
   const shortmonth = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May',
@@ -977,36 +998,41 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
         <br />
         <div className="flex-space-between">
           <Card className="flex-grow mr-2">
-            <CardContent style={{height:'200px'}}>
+            <CardContent style={{height:'250px'}}>
               <Typography variant="overline">Cash Flow</Typography>
               <br />
               <br />
               <div>
                 <Typography variant="subtitle2" color="primary" className="flex-space-between">
-                  <div>Income</div>
+                  <div>Income:</div>
                   <div>{format_money(summary.income, true)}</div>
                 </Typography>
                 <LinearProgress variant="determinate" value={Math.min(100, 100*summary.income/(summary.last_month_income||summary.net_worth||1))} style={{height:'30px'}} />
                 <Typography variant="subtitle2" color="primary" className="flex-space-between">
-                  <div>Last Month</div>
+                  <div>Last Month:</div>
                   <div>{summary.last_month_income ? format_money(summary.last_month_income, true) : 'N/A'}</div>
                 </Typography>
                 <br />
                 <Typography variant="subtitle2" color="secondary" className="flex-space-between">
-                  <div>Expenses</div>
+                  <div>Expenses:</div>
                   <div>{format_money(summary.expenses, true)}</div>
                 </Typography>
                 <LinearProgress variant="determinate" value={Math.min(100, Math.abs(100*summary.expenses/(summary.last_month_expenses||summary.net_worth||1)))} style={{height:'30px'}} color="secondary" />
                 <Typography variant="subtitle2" color="secondary" className="flex-space-between">
-                  <div>Last Month</div>
+                  <div>Last Month:</div>
                   <div>{summary.last_month_expenses ? format_money(summary.last_month_expenses, true) : 'N/A'}</div>
                 </Typography>
               </div>
             </CardContent>
           </Card>
           <Card className="flex-grow ml-2" style={{maxWidth:'50%'}}>
-            <CardContent style={{height:'200px'}}>
+            <CardContent style={{height:'250px'}}>
               <Typography variant="overline">Spending</Typography>
+              <Tabs value={spendingTimescale} onChange={(e, n) => setSpendingTimescale(n)}>
+                <Tab label="Month" className="small-tab" />
+                <Tab label="YTD" className="small-tab" />
+                <Tab label="All" className="small-tab" />
+              </Tabs>
               <div data-tip=''>
                 <PieChart
                   radius={(window.innerWidth <= 600 ? 60 : 30)}
@@ -1014,7 +1040,7 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
                   viewBoxSize={[120, (window.innerWidth <= 600 ? 150 : 65)]}
                   center={[60, (window.innerWidth <= 600 ? 150/2 : 35)]}
                   data={spendingData}
-                  label={() => (has_spending_data() ? format_money(Math.abs(summary.expenses)) : 'None yet.')}
+                  label={() => (has_spending_data() ? format_money(Math.abs(totalSpending)) : 'None yet.')}
                   labelStyle={{
                     fontSize: (window.innerWidth <= 600 ? '0.8rem' : '0.4rem'),
                     fontFamily: 'Roboto, sans-serif',
@@ -1172,6 +1198,7 @@ function Rightbar({ summary, accounts, transactions }){
           <br />
           <br />
           <div className="flex-center text-align-center">
+            <div>
             {
               (upcomingStatements.length === 0 ? (
                 <Typography variant="subtitle2">
@@ -1190,9 +1217,11 @@ function Rightbar({ summary, accounts, transactions }){
                   <Typography variant="h6">{card.name}</Typography>
                   <Typography variant="subtitle2">{today.getMonth()+1}/{statement.getDate()}/{today.getFullYear()} ({(difference === 0 ? 'today' : (difference === 1 ? 'tomorrow' : difference + ' days'))})</Typography>
                   <Typography variant="subtitle2">Balance: {format_money(-card.balance)}</Typography>
+                  { ind === upcomingStatements.length-1 ? (<></>) : (<br />) }
                 </div>);
               })
             }
+          </div>
           </div>
         </CardContent>
       </Card>
@@ -1230,7 +1259,7 @@ function Rightbar({ summary, accounts, transactions }){
           <Tabs value={rewardsTimescale} onChange={(e, n) => setRewardsTimescale(n)}>
             <Tab label="Month" className="small-tab" />
             <Tab label="YTD" className="small-tab" />
-            <Tab label="All Time" className="small-tab" />
+            <Tab label="All" className="small-tab" />
           </Tabs>
           <div data-tip=''>
             {
@@ -1290,6 +1319,9 @@ export default function App(){
         [accountDialog, setAccountDialog] = useState(false),
         [transactionDialog, setTransactionDialog] = useState(false);
 
+  /*
+   * ACCOUNT/TRANSATION MANAGEMENT
+   */
   function addAccount(type, account, date, balance){
     let account_class = new Account(type, account, date, balance);
 

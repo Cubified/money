@@ -84,42 +84,48 @@ const accounts_db = {
       {
         "issuer": "Chase",
         "name": "Savings",
-        "fee": 60
+        "fee": 60,
+        "image": "https://download.logo.wine/logo/Chase_Bank/Chase_Bank-Logo.wine.png",
       }
     ],
     'Bank of America': [
       {
         "issuer": "Bank of America",
         "name": "Advantage Savings",
-        "fee": 96
+        "fee": 96,
+        "image": "https://1000logos.net/wp-content/uploads/2016/10/Bank-of-America-logo.png",
       }
     ],
     'American Express': [
       {
         "issuer": "American Express",
         "name": "High Yield Savings",
-        "fee": 0
+        "fee": 0,
+        "image": "https://s1.q4cdn.com/692158879/files/images/brand_imagery/American-Express-Logotype-Stacked.png",
       }
     ],
     'Ally Bank': [
       {
         "issuer": "Ally Bank",
         "name": "Online Savings",
-        "fee": 0
+        "fee": 0,
+        "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Ally_Bank_logo.svg/1280px-Ally_Bank_logo.svg.png",
       }
     ],
     'Discover': [
       {
         "issuer": "Discover",
         "name": "Online Savings",
-        "fee": 0
+        "fee": 0,
+        "image": "https://1000logos.net/wp-content/uploads/2021/05/Discover-logo.png"
       }
     ],
     'Citi': [
       {
         "issuer": "Citi",
         "name": "Savings",
-        "fee": 4.50
+        "fee": 4.50,
+        "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Citi.svg/320px-Citi.svg.png"
       }
     ],
     'Other': [
@@ -135,66 +141,78 @@ const accounts_db = {
       {
         "issuer": "Vanguard",
         "name": "Traditional IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://cdn-static.findly.com/wp-content/uploads/sites/11/2015/02/CareersSite_FeaturedImage_Home_640x480.jpg"
       },
       {
         "issuer": "Vanguard",
         "name": "Roth IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://cdn-static.findly.com/wp-content/uploads/sites/11/2015/02/CareersSite_FeaturedImage_Home_640x480.jpg"
       },
       {
         "issuer": "Vanguard",
         "name": "401(k)",
-        "fee": 0
+        "fee": 0,
+        "image": "https://cdn-static.findly.com/wp-content/uploads/sites/11/2015/02/CareersSite_FeaturedImage_Home_640x480.jpg"
       },
       {
         "issuer": "Vanguard",
         "name": "Individual Brokerage",
-        "fee": 0
+        "fee": 0,
+        "image": "https://cdn-static.findly.com/wp-content/uploads/sites/11/2015/02/CareersSite_FeaturedImage_Home_640x480.jpg"
       },
     ],
     'Fidelity': [
       {
         "issuer": "Fidelity",
         "name": "Traditional IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/02/Fidelity-Symbol.jpg"
       },
       {
         "issuer": "Fidelity",
         "name": "Roth IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/02/Fidelity-Symbol.jpg"
       },
       {
         "issuer": "Fidelity",
         "name": "401(k)",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/02/Fidelity-Symbol.jpg"
       },
       {
         "issuer": "Fidelity",
         "name": "Individual Brokerage",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/02/Fidelity-Symbol.jpg"
       },
     ],
     'Charles Schwab': [
       {
         "issuer": "Charles Schwab",
         "name": "Traditional IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/03/Charles-Schwab-Emblem.png"
       },
       {
         "issuer": "Charles Schwab",
         "name": "Roth IRA",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/03/Charles-Schwab-Emblem.png"
       },
       {
         "issuer": "Charles Schwab",
         "name": "401(k)",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/03/Charles-Schwab-Emblem.png"
       },
       {
         "issuer": "Charles Schwab",
         "name": "One Brokerage",
-        "fee": 0
+        "fee": 0,
+        "image": "https://logos-world.net/wp-content/uploads/2021/03/Charles-Schwab-Emblem.png"
       },
     ],
     'Other': [
