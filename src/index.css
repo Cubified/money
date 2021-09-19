@@ -42,6 +42,10 @@ body {
   font-weight: bold;
 }
 
+.flex-align-center {
+  display: flex;
+  align-items: center;
+}
 .flex-center {
   display: flex;
   align-items: center;

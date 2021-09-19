@@ -14,9 +14,10 @@ A simple personal finance webapp to keep tabs on how your money moves.
 - Rewards breakdown by card
 - Statement date tracker
 - Credit card simulator + recommendations based on your spending habits
+- Budget tracker
 - Runs completely offline, with persistent storage provided by `localStorage`
 - Dark theme by default
-- Built with mobile in mind
+- Fully responsive, built with mobile in mind
 
 ## Screenshots
 

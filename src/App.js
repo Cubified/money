@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -82,6 +83,11 @@ import { PieChart } from 'react-minimal-pie-chart';
 import ReactTooltip from 'react-tooltip';
 
 import accounts_db from './accounts.js';
+
+/*
+ * CONSTS
+ */
+const MOBILE_CUTOFF = 800;
 
 /*
  * GLOBAL UTILS
@@ -199,13 +205,7 @@ class Account {
 class Transaction {
   constructor(date, name, category, account, paymentAccount, amount){
     this.id = (Math.random()*10000).toString();
-
-    this.date = date;
-    this.name = name;
-    this.category = category;
-    this.account = account;
-    this.paymentAccount = (this.category === 'Payment' ? paymentAccount : undefined);
-    this.amount = amount;
+    this.update(date, name, category, account, paymentAccount, amount);
   }
   update(date, name, category, account, paymentAccount, amount){
     this.date = date;
@@ -214,6 +214,20 @@ class Transaction {
     this.account = account;
     this.paymentAccount = (this.category === 'Payment' ? paymentAccount : undefined);
     this.amount = amount;
+  }
+}
+
+class BudgetItem {
+  constructor(name, amount, categories, account){
+    this.id = (Math.random()*10000).toString();
+
+    this.update(name, amount, categories, account);
+  }
+  update(name, amount, categories, account){
+    this.name = name;
+    this.amount = amount;
+    this.categories = categories;
+    this.account = account;
   }
 }
 
@@ -244,16 +258,19 @@ function NavigationController({ view, setView }){
     "Accounts",
     "Overview",
     "Transactions",
-    "Simulator"
+    "Simulator",
+    "Budget"
   ];
   const viewIcons = [
     (<Person />),
     (<ListIcon />),
     (<AccountBalance />),
-    (<CreditCard />)
+    (<CreditCard />),
+    (<AttachMoney />)
   ];
   const viewRequirements = [
-    window.innerWidth <= 600,
+    window.innerWidth <= MOBILE_CUTOFF,
+    true,
     true,
     true,
     true
@@ -268,7 +285,7 @@ function NavigationController({ view, setView }){
             
           </Typography>
           {
-            (window.innerWidth > 600 ? (
+            (window.innerWidth > MOBILE_CUTOFF ? (
               <div>
                 <Tabs
                   value={view}
@@ -455,13 +472,14 @@ function AccountDialog({ isOpen, addAccount, close }){
   );
 }
 
-function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, setTransRef }){
+function TransactionDialog({ isOpen, accounts, setAccounts, addTransaction, close, transRef, setTransRef }){
   const [date, setDate] = useState(new Date()),
     [name, setName] = useState(''),
     [category, setCategory] = useState('Restaurants'),
     [account, setAccount] = useState(),
     [paymentAccount, setPaymentAccount] = useState(),
-    [amount, setAmount] = useState();
+    [amount, setAmount] = useState(),
+    [makeDefault, setMakeDefault] = useState(false);
 
   const [nameError, setNameError] = useState(false),
     [amountError, setAmountError] = useState(false),
@@ -484,6 +502,15 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, 
     return out;
   }
 
+  function do_make_default(){
+    let tmp = accounts.slice();
+    tmp = [
+      accounts.find(el => el.id === account),
+      ...tmp.filter(el => el.id !== account)
+    ];
+    setAccounts(tmp);
+  }
+
   useEffect(() => {
     if(isOpen && !transRef){
       setDate(new Date());
@@ -492,6 +519,7 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, 
       setAccount(accounts[0].id);
       setPaymentAccount(accounts[0].id);
       setAmount();
+      setMakeDefault(false);
     }
   }, [isOpen]);
 
@@ -558,13 +586,40 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, 
             </FormControl>
           </>))
         }
+        {
+          (category === 'Payment' ? (
+            <>
+              <br />
+              <br />
+              <FormControl variant="outlined" className="fullwidth">
+                <InputLabel id="payment-account-label">Source Account</InputLabel>
+                <Select
+                  variant="outlined"
+                  label="Source Account"
+                  label-id="payment-account-label"
+                  error={paymentAccountError}
+                  helperText={paymentAccountError ? 'Source account cannot be the same as the account being paid off.' : ''}
+                  value={paymentAccount}
+                  onChange={(e) => { setPaymentAccountError(false); setPaymentAccount(e.target.value) }}
+                  fullWidth
+                >
+                  {
+                    accounts.map((acc, ind) => (
+                      <MenuItem key={ind} value={acc.id}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+                    ))
+                  }
+                </Select>
+              </FormControl>
+            </>
+          ) : (<></>))
+        }
         <br />
         <br />
         <FormControl variant="outlined" className="fullwidth">
           <InputLabel id="account-label">{category === 'Payment' ? 'Destination' : ''} Account</InputLabel>
           <Select
             variant="outlined"
-            label="Account"
+            label={category === 'Payment' ? "Destination Account" : "Account"}
             label-id="account-label"
             value={account}
             onChange={(e) => { setPaymentAccountError(false); setAccount(e.target.value) }}
@@ -577,34 +632,13 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, 
             }
           </Select>
         </FormControl>
-        <br />
-        <br />
         {
-          (category === 'Payment' ? (
-            <>
-              <FormControl variant="outlined" className="fullwidth">
-                <InputLabel id="payment-account-label">Source Account</InputLabel>
-                <Select
-                  variant="outlined"
-                  label="Payment Account"
-                  label-id="payment-account-label"
-                  error={paymentAccountError}
-                  helperText={paymentAccountError ? 'Payment account cannot be the same as the account being paid off.' : ''}
-                  value={paymentAccount}
-                  onChange={(e) => { setPaymentAccountError(false); setPaymentAccount(e.target.value) }}
-                  fullWidth
-                >
-                  {
-                    accounts.map((acc, ind) => (
-                      <MenuItem key={ind} value={acc.id}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
-                    ))
-                  }
-                </Select>
-              </FormControl>
-              <br />
-              <br />
-            </>
-          ) : (<></>))
+          (account !== accounts[0].id ? (<>
+            <div className="flex-align-center">
+              <Checkbox id="make-account-default" color="primary" checked={makeDefault} onChange={(e, n) => setMakeDefault(n)} />
+              <InputLabel for="make-account-default">Make this account the default</InputLabel>
+            </div>
+          </>) : (<><br /><br /></>))
         }
         <TextField
           variant="outlined"
@@ -618,7 +652,132 @@ function TransactionDialog({ isOpen, accounts, addTransaction, close, transRef, 
         />
       </DialogContent>
       <DialogActions>
-        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { addTransaction(date, name, category, accounts.find(el => el.id === account), accounts.find(el => el.id === paymentAccount), parseFloat(amount)); close(); }}}>{transRef ? 'Update' : 'Add'}</Button>
+        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { if(makeDefault) { do_make_default(); } addTransaction(date, name, category, accounts.find(el => el.id === account), accounts.find(el => el.id === paymentAccount), parseFloat(amount)); close(); }}}>{transRef ? 'Update' : 'Add'}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function BudgetDialog({ accounts, isOpen, addBudgetItem, close, budgetItemRef, setBudgetItemRef }){
+  const [name, setName] = useState(''),
+        [amount, setAmount] = useState(),
+        [categories, setCategories] = useState([]),
+        [account, setAccount] = useState();
+
+  const [nameError, setNameError] = useState(),
+        [amountError, setAmountError] = useState(),
+        [categoriesError, setCategoriesError] = useState();
+
+  function valid(){
+    let out = true;
+    if(!name || name.trim() === ''){
+      setNameError(true);
+      out = false;
+    }
+    if(!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0){
+      setAmountError(true);
+      out = false;
+    }
+    if(!categories || categories.length === 0){
+      setCategoriesError(true);
+      out = false;
+    }
+    return out;
+  }
+
+  useEffect(() => {
+    if(isOpen && !budgetItemRef){
+      setName('');
+      setAmount();
+      setCategories([]);
+      setAccount();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if(budgetItemRef){
+      setName(budgetItemRef.name);
+      setAmount(budgetItemRef.amount);
+      setCategories(budgetItemRef.categories);
+      setAccount(budgetItemRef.account);
+    }
+  }, [budgetItemRef]);
+
+  return (
+    <Dialog open={isOpen} onClose={close}>
+      <DialogTitle>Add a Budget Item</DialogTitle>
+      <DialogContent style={{width: '65vw', maxWidth: '400px'}}>
+        <TextField
+          variant="outlined"
+          label="Name"
+          error={nameError}
+          helperText={nameError ? 'Please enter a name.' : ''}
+          value={name}
+          onChange={(e) => { setNameError(); setName(e.target.value); }}
+          fullWidth
+        />
+        <br />
+        <br />
+        <TextField
+          variant="outlined"
+          label="Monthly Amount"
+          type="number"
+          error={amountError}
+          helperText={amountError ? 'Please enter an amount greater than zero.' : ''}
+          value={amount}
+          onChange={(e) => { setAmountError(); setAmount(e.target.value); }}
+          fullWidth
+        />
+        <br />
+        <br />
+        <FormControl variant="outlined" className="fullwidth">
+          <InputLabel id="budget-category-label">Categories</InputLabel>
+          <Select
+            variant="outlined"
+            label="Categories"
+            label-id="budget-category-label"
+            error={categoriesError}
+            value={categories}
+            onChange={(e) => { setCategoriesError(); setCategories(e.target.value); }}
+            fullWidth
+            multiple
+          >
+            <MenuItem value="Restaurants">Restaurants</MenuItem>
+            <MenuItem value="Travel / Entertainment">Travel / Entertainment</MenuItem>
+            <MenuItem value="Groceries">Groceries</MenuItem>
+            <MenuItem value="Gas">Gas</MenuItem>
+            <MenuItem value="Online shopping">Online shopping</MenuItem>
+            <MenuItem value="Payment">Payment</MenuItem>
+            <MenuItem value="Deposit / Withdrawal">Withdrawal</MenuItem>
+            <MenuItem value="Other">Other</MenuItem>
+          </Select>
+        </FormControl>
+        {
+          (categories.indexOf('Payment') > -1 ? (<>
+            <br />
+            <br />
+            <FormControl variant="outlined" className="fullwidth">
+              <InputLabel id="budget-payment-account-label">Account</InputLabel>
+              <Select
+                variant="outlined"
+                label="Account"
+                label-id="budget-payment-account-label"
+                value={account}
+                onChange={(e) => setAccount(e.target.value) }
+                fullWidth
+              >
+                {
+                  accounts.map((acc, ind) => (
+                    <MenuItem key={ind} value={acc.id}>{acc.issuer==='Other'?'':acc.issuer} {acc.name}</MenuItem>
+                  ))
+                }
+              </Select>
+            </FormControl>
+          </>) : (<></>))
+        }
+      </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="secondary" onClick={() => { if(valid()) { addBudgetItem(name, parseFloat(amount), categories, account); close(); }}}>{budgetItemRef ? 'Update' : 'Add'}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -886,11 +1045,11 @@ function CardSimulator({ summary, accounts, transactions }){
 
 function QuickActions({ view, setView, accounts, openTransactionDialog, setAccountDialog }){
   return (
-    <Card className="flex-grow mr-2">
+    <Card className="flex-grow mr-2 fullwidth">
       <CardContent>
         <Typography variant="overline">Quick Actions</Typography>
         <br />
-        <Button variant="contained" color="primary" fullWidth disabled={accounts.length===0} onClick={() => {setView(2); openTransactionDialog()}}>Add a Transaction</Button>
+        <Button variant="contained" color="primary" fullWidth disabled={accounts.length===0} onClick={() => openTransactionDialog()}>Add a Transaction</Button>
         <br />
         <br />
         <Button variant="contained" color="secondary" fullWidth onClick={() => setAccountDialog(true)}>Add an Account</Button>
@@ -937,10 +1096,11 @@ function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
   );
 }
 
-function MainView({ summary, accounts, transactions, view, setView, openTransactionDialog, setAccountDialog, removeTransaction }){
+function MainView({ summary, accounts, transactions, budget, view, setView, openTransactionDialog, setAccountDialog, removeTransaction, openBudgetDialog, removeBudgetItem }){
   const [hover, setHover] = useState(),
     [tooltip, setTooltip] = useState(),
-    [spendingTimescale, setSpendingTimescale] = useState(0);
+    [spendingTimescale, setSpendingTimescale] = useState(0),
+    [budgetHover, setBudgetHover] = useState();
 
   const spendingData = [
       {title: 'Restaurants',            value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Restaurants'))),            color: '#689f38'},
@@ -951,6 +1111,23 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
       {title: 'Other',                  value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Other'))),                  color: '#1a237e'}
     ],
     totalSpending = spendingData.reduce((prev, next) => {return {value: prev.value+next.value}}, {value:0}).value;
+
+  let budgetData = budget.map(item => {
+    let out = {
+      title: item.name,
+      true_value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), 0) && item.categories.indexOf(next.category) > -1 && (item.categories.indexOf('Payment') > -1 && next.category === 'Payment' ? (next.account.id === item.account): true)))),
+      color: string_to_color(item.name),
+      item
+    };
+    out.value = Math.min(item.amount, out.true_value);
+    return out;
+  });
+  budgetData.push({
+    title: 'Remaining Cash',
+    value: sum_all(budget, 'amount', () => true) - sum_all(budgetData, 'value', () => true),
+    color: '#555',
+    is_remaining_cash: true
+  });
 
   const shortmonth = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May',
@@ -983,6 +1160,20 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
 
   function has_spending_data(){
     return (sum_all(spendingData, 'value', () => true) > 0);
+  }
+
+  function compute_budget_progress(item){
+    let out = 0,
+        today = new Date();
+    transactions.forEach(trans => {
+      if(new Date(trans.date).getMonth() === today.getMonth() &&
+        item.categories.indexOf(trans.category) > -1 &&
+        (item.categories.indexOf('Payment') > -1 && trans.category === 'Payment' ?
+          trans.account.id === item.account : true)){
+        out += Math.abs(trans.amount);
+      }
+    });
+    return out;
   }
 
   return (
@@ -1086,6 +1277,69 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
             <ReactTooltip place="top" type="dark" effect="float" getContent={() => tooltip} />
           </CardContent>
         </Card>
+        <br />
+        <div className="flex-space-between">
+          <div className="flex-grow mr-2" style={{maxWidth:"50%"}}>
+            <Card style={{minHeight:'250px',height:(53+(budget.length*79))+'px'}}>
+              <CardContent data-tip="">
+                <Typography variant="overline">Budget Overview</Typography>
+                {
+                  (budget.length === 0 ? (
+                    <Typography variant="subtitle2" className="text-align-center">
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      No budget yet.
+                    </Typography>
+                  ) : (<>
+                      <PieChart
+                        radius={(window.innerWidth <= 600 ? 60 : 30)}
+                        viewBoxSize={[120, (window.innerWidth <= 600 ? 150 : 65+(budget.length*8))]}
+                        center={[60, (window.innerWidth <= 600 ? 150/2 : 35+(budget.length*4))]}
+                        data={budgetData}
+                        onMouseOver={(e, ind) => { if(budgetData[ind].is_remaining_cash) setBudgetHover(`Remaining: ${format_money(budgetData[ind].value)}`); else setBudgetHover(`${budgetData[ind].title}: ${format_money(budgetData[ind].true_value)} / ${format_money(budgetData[ind].item.amount)}`) }}
+                        onMouseOut={() => setBudgetHover(null)}
+                      />
+                      <ReactTooltip place="top" type="dark" effect="float" getContent={() => budgetHover} />
+                    </>
+                  ))
+                }
+              </CardContent>
+            </Card>
+          </div>
+          <div className="flex-grow ml-2" style={{maxWidth:"50%"}}>
+            <Card style={{minHeight:'250px'}}>
+              <CardContent>
+                <Typography variant="overline">Budget Items</Typography>
+                {
+                  (budget.length === 0 ? (
+                    <Typography variant="subtitle2" className="text-align-center">
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      No budget yet.
+                    </Typography>
+                  ) : 
+                  budget.map((el, ind) => {
+                    let progress = compute_budget_progress(el),
+                      color = (progress >= el.amount ? 'secondary' : 'primary');
+                    return (<div key={ind}>
+                      <div className="flex-space-between">
+                        <Typography variant="overline" color={color}>{el.name}</Typography>
+                      </div>
+                      <LinearProgress variant="determinate" color={color} value={Math.min(100, 100*(progress/el.amount))} style={{height:'30px'}} />
+                      {
+                        (ind < budget.length-1 ? (<br />) : (<></>))
+                      }
+                    </div>);
+                  }))
+                }
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </View>
       <View number={2} view={view}>
         <Button
@@ -1103,6 +1357,50 @@ function MainView({ summary, accounts, transactions, view, setView, openTransact
       </View>
       <View number={3} view={view}>
         <CardSimulator summary={summary} accounts={accounts} transactions={transactions} />
+      </View>
+      <View number={4} view={view}>
+        <Card>
+          <CardContent>
+            <Typography variant="overline">Budget</Typography>
+            <Button variant="contained" color="primary" fullWidth onClick={() => openBudgetDialog()}>Add New</Button>
+            {
+              (budget.length > 0 ? (<>
+                <br />
+                <br />
+              </>) : (<Typography variant="subtitle2" className="text-align-center"><br />No budget items yet added.</Typography>))
+            }
+            {
+              budget.map((el, ind) => {
+                let progress = compute_budget_progress(el),
+                  color = (progress >= el.amount ? 'secondary' : 'primary');
+
+                return (<div key={ind}>
+                  <Card variant="outlined" className="pl-10">
+                    <div className="flex-space-between">
+                      <div className="flex-grow">
+                        <div className="flex-space-between">
+                          <Typography variant="overline" color={color}>{el.name}</Typography>
+                          <Typography variant="overline" color={color}>{format_money(progress, true)} / {format_money(el.amount, true)}</Typography>
+                        </div>
+                        <LinearProgress variant="determinate" color={color} value={Math.min(100, 100*(progress/el.amount))} style={{height:'30px'}} />
+                      </div>
+                      <div className="ml-10">
+                        <IconButton onClick={() => openBudgetDialog(el)}>
+                          <Edit />
+                        </IconButton>
+                        <br />
+                        <IconButton onClick={() => removeBudgetItem(el)}>
+                          <Delete />
+                        </IconButton>
+                      </div>
+                    </div>
+                  </Card>
+                  { (ind < budget.length-1 ? (<br />) : (<></>)) }
+                </div>)
+              })
+            }
+          </CardContent>
+        </Card>
       </View>
       <br />
     </div>
@@ -1313,14 +1611,18 @@ export default function App(){
       last_month_income: 0,
       last_month_expenses: 0
     }),
-    [transRef, setTransRef] = useState();
+    [transRef, setTransRef] = useState(),
+    [budget, setBudget] = useState(local_storage_get('budget') || []),
+    [budgetItemRef, setBudgetItemRef] = useState(),
+    [resizeHelper, setResizeHelper] = useState();
 
-  const [view, setView] = useState(window.innerWidth <= 600 ? 0 : 1),
+  const [view, setView] = useState(window.innerWidth <= MOBILE_CUTOFF ? 0 : 1),
         [accountDialog, setAccountDialog] = useState(false),
-        [transactionDialog, setTransactionDialog] = useState(false);
+        [transactionDialog, setTransactionDialog] = useState(false),
+        [budgetDialog, setBudgetDialog] = useState(false);
 
   /*
-   * ACCOUNT/TRANSATION MANAGEMENT
+   * ACCOUNT/TRANSATION/BUDGET MANAGEMENT
    */
   function addAccount(type, account, date, balance){
     let account_class = new Account(type, account, date, balance);
@@ -1345,8 +1647,7 @@ export default function App(){
       tmp.splice(transactions.indexOf(found), 1);
       tmp.push(trans);
       setTransactions(tmp);
-    }
-    else setTransactions([
+    } else setTransactions([
       ...transactions,
       trans
     ]);
@@ -1361,7 +1662,31 @@ export default function App(){
     if(trans) setTransRef(trans);
     else setTransRef();
     setTransactionDialog(true);
-  } 
+  }
+
+  function addBudgetItem(name, amount, categories, account){
+    let budget_item = new BudgetItem(name, amount, categories, account);
+    if(budgetItemRef){
+      let tmp = budget.slice();
+      let found = budget.find(el => el.id === budgetItemRef.id);
+      tmp.splice(budget.indexOf(found), 1);
+      tmp.push(budget_item);
+      setBudget(tmp);
+    } else setBudget([
+      ...budget,
+      budget_item
+    ]);
+  }
+  function openBudgetDialog(budget_item){
+    if(budget_item) setBudgetItemRef(budget_item);
+    else setBudgetItemRef();
+    setBudgetDialog(true);
+  }
+  function removeBudgetItem(item){
+    let tmp = budget.slice();
+    tmp.splice(budget.indexOf(item), 1);
+    setBudget(tmp);
+  }
 
   /*
    * EFFECT HOOKS
@@ -1425,15 +1750,20 @@ export default function App(){
   useEffect(() => {
     localStorage.setItem('accounts', JSON.stringify(accounts));
     localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [accounts, transactions]);
+    localStorage.setItem('budget', JSON.stringify(budget));
+  }, [accounts, transactions, budget]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     location.hash = view;
   }, [view]);
-  window.addEventListener('hashchange', () => {
+  window.onhashchange = () => {
     setView(parseInt(location.hash.slice(1)));
-  });
+  };
+
+  window.onresize = () => {
+    setResizeHelper(Math.random());
+  };
 
   /*
    * THEME
@@ -1456,7 +1786,8 @@ export default function App(){
   return (
     <ThemeProvider theme={theme}>
       <AccountDialog isOpen={accountDialog} addAccount={addAccount} close={() => setAccountDialog(false)} />
-      <TransactionDialog accounts={accounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} transRef={transRef} setTransRef={setTransRef} />
+      <TransactionDialog accounts={accounts} setAccounts={setAccounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} transRef={transRef} setTransRef={setTransRef} />
+      <BudgetDialog accounts={accounts} isOpen={budgetDialog} addBudgetItem={addBudgetItem} close={() => setBudgetDialog(false)} budgetItemRef={budgetItemRef} setBudgetItemRef={setBudgetItemRef} />
 
       <NavigationController view={view} setView={setView} />
 
@@ -1464,8 +1795,8 @@ export default function App(){
         container
         justifyContent="space-between"
       >
-        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= 600} />
-        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} />
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= MOBILE_CUTOFF} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} budget={budget} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} openBudgetDialog={openBudgetDialog} removeBudgetItem={removeBudgetItem} />
         <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} />
       </Grid>
     </ThemeProvider>
