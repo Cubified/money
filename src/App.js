@@ -1180,9 +1180,9 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
     <div className="mainview">
       <br />
       <View number={0} view={view}>
-        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} />
-        <br />
         <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
+        <br />
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} />
       </View>
       <View number={1} view={view}>
         <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
@@ -1763,6 +1763,7 @@ export default function App(){
 
   window.onresize = () => {
     setResizeHelper(Math.random());
+    if(view === 0 && window.innerWidth >= MOBILE_CUTOFF) setView(1);
   };
 
   /*
