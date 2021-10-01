@@ -234,14 +234,6 @@ class BudgetItem {
 /*
  * COMPONENTS
  */
-  /*
-function Spacer(){
-  return (
-    <>
-      &nbsp;
-    </>
-  );
-}*/
 
 function View({ number, view, children }){
   return (
@@ -318,6 +310,7 @@ function NavigationController({ view, setView }){
           }
           <div className="appbar-tail">
             <CloudDone data-tip="Data saved locally." />
+            <ReactTooltip place="left" type="dark" />
           </div>
         </Toolbar>
       </AppBar>
@@ -633,7 +626,7 @@ function TransactionDialog({ isOpen, accounts, setAccounts, addTransaction, clos
           </Select>
         </FormControl>
         {
-          (account !== accounts[0].id ? (<>
+          (accounts.length > 0 && account !== accounts[0].id ? (<>
             <div className="flex-align-center">
               <Checkbox id="make-account-default" color="primary" checked={makeDefault} onChange={(e, n) => setMakeDefault(n)} />
               <InputLabel for="make-account-default">Make this account the default</InputLabel>
@@ -1096,11 +1089,8 @@ function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
   );
 }
 
-function MainView({ summary, accounts, transactions, budget, view, setView, openTransactionDialog, setAccountDialog, removeTransaction, openBudgetDialog, removeBudgetItem }){
-  const [hover, setHover] = useState(),
-    [tooltip, setTooltip] = useState(),
-    [spendingTimescale, setSpendingTimescale] = useState(0),
-    [budgetHover, setBudgetHover] = useState();
+function MainView({ summary, accounts, transactions, budget, view, setView, openTransactionDialog, setAccountDialog, removeTransaction, openBudgetDialog, removeBudgetItem, setHover }){
+  const [spendingTimescale, setSpendingTimescale] = useState(0);
 
   const spendingData = [
       {title: 'Restaurants',            value: Math.abs(sum_all(transactions, 'amount', (next) => (conforms_to_timescale(new Date(next.date), spendingTimescale) && next.category==='Restaurants'))),            color: '#689f38'},
@@ -1242,7 +1232,6 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
                   onMouseOver={(e, ind) => setHover(`${spendingData[ind].title}: ${format_money(spendingData[ind].value)}`)}
                   onMouseOut={() => setHover(null)}
                 />
-                <ReactTooltip place="top" type="dark" effect="float" getContent={() => hover} />
               </div>
             </CardContent>
           </Card>
@@ -1261,8 +1250,8 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
                 <AreaChart
                   width={Math.min(window.innerWidth - 64, 615)}
                   height={200}
-                  mouseOverHandler={(d, e) => setTooltip(format_money(d.y, true))}
-                  mouseOutHandler={(d, e) => setTooltip()}
+                  mouseOverHandler={(d, e) => setHover(format_money(d.y, true))}
+                  mouseOutHandler={(d, e) => setHover()}
                   axes
                   axisLabels={{x: 'Date', y: 'Net Worth'}}
                   xType="time"
@@ -1274,7 +1263,6 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
                 />
               ))
             }
-            <ReactTooltip place="top" type="dark" effect="float" getContent={() => tooltip} />
           </CardContent>
         </Card>
         <br />
@@ -1298,10 +1286,9 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
                         viewBoxSize={[120, (window.innerWidth <= 600 ? 150 : 65+(budget.length*8))]}
                         center={[60, (window.innerWidth <= 600 ? 150/2 : 35+(budget.length*4))]}
                         data={budgetData}
-                        onMouseOver={(e, ind) => { if(budgetData[ind].is_remaining_cash) setBudgetHover(`Remaining: ${format_money(budgetData[ind].value)}`); else setBudgetHover(`${budgetData[ind].title}: ${format_money(budgetData[ind].true_value)} / ${format_money(budgetData[ind].item.amount)}`) }}
-                        onMouseOut={() => setBudgetHover(null)}
+                        onMouseOver={(e, ind) => { if(budgetData[ind].is_remaining_cash) setHover(`Remaining: ${format_money(budgetData[ind].value)}`); else setHover(`${budgetData[ind].title}: ${format_money(budgetData[ind].true_value)} / ${format_money(budgetData[ind].item.amount)}`) }}
+                        onMouseOut={() => setHover(null)}
                       />
-                      <ReactTooltip place="top" type="dark" effect="float" getContent={() => budgetHover} />
                     </>
                   ))
                 }
@@ -1407,13 +1394,12 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
   );
 }
 
-function Rightbar({ summary, accounts, transactions }){
+function Rightbar({ summary, accounts, transactions, setHover }){
   const REWARDS_TIMESCALE_MONTH = 0,
     REWARDS_TIMESCALE_YTD = 1,
     REWARDS_TIMESCALE_ALL = 2;
 
-  const [hover, setHover] = useState(),
-    [rewardsTimescale, setRewardsTimescale] = useState(REWARDS_TIMESCALE_MONTH);
+  const [rewardsTimescale, setRewardsTimescale] = useState(REWARDS_TIMESCALE_MONTH);
 
   const db = collapse_object(accounts_db['Credit Card']);
 
@@ -1587,7 +1573,6 @@ function Rightbar({ summary, accounts, transactions }){
                       onMouseOver={(e, ind) => setHover(chartData[ind].title + ': ' + format_money(chartData[ind].value))}
                       onMouseOut={() => setHover(null)}
                     />
-                    <ReactTooltip place="top" type="dark" effect="float" getContent={() => hover} />
                   </>
                 )
               )
@@ -1614,7 +1599,8 @@ export default function App(){
     [transRef, setTransRef] = useState(),
     [budget, setBudget] = useState(local_storage_get('budget') || []),
     [budgetItemRef, setBudgetItemRef] = useState(),
-    [resizeHelper, setResizeHelper] = useState();
+    [resizeHelper, setResizeHelper] = useState(),
+    [hover, setHover] = useState();
 
   const [view, setView] = useState(window.innerWidth <= MOBILE_CUTOFF ? 0 : 1),
         [accountDialog, setAccountDialog] = useState(false),
@@ -1789,7 +1775,8 @@ export default function App(){
       <AccountDialog isOpen={accountDialog} addAccount={addAccount} close={() => setAccountDialog(false)} />
       <TransactionDialog accounts={accounts} setAccounts={setAccounts} isOpen={transactionDialog} addTransaction={addTransaction} close={() => setTransactionDialog(false)} transRef={transRef} setTransRef={setTransRef} />
       <BudgetDialog accounts={accounts} isOpen={budgetDialog} addBudgetItem={addBudgetItem} close={() => setBudgetDialog(false)} budgetItemRef={budgetItemRef} setBudgetItemRef={setBudgetItemRef} />
-
+      
+      <ReactTooltip place="top" type="dark" effect="float" getContent={() => hover} />
       <NavigationController view={view} setView={setView} />
 
       <Grid
@@ -1797,8 +1784,8 @@ export default function App(){
         justifyContent="space-between"
       >
         <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= MOBILE_CUTOFF} />
-        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} budget={budget} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} openBudgetDialog={openBudgetDialog} removeBudgetItem={removeBudgetItem} />
-        <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} budget={budget} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} openBudgetDialog={openBudgetDialog} removeBudgetItem={removeBudgetItem} setHover={setHover} />
+        <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} setHover={setHover} />
       </Grid>
     </ThemeProvider>
   );
