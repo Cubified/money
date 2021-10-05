@@ -843,11 +843,29 @@ function TransactionList({ transactions, max, paginate, openTransactionDialog, r
   );
 }
 
-function AccountsAccordion({ name, accounts }){
+function AccountsAccordion({ name, accounts, update }){
   if(accounts.length === 0) return (<></>);
+
+  function read_file(){
+    const el = document.getElementById('file_picker');
+
+    console.log(el.files);
+
+    if(!el.files.length) return;
+
+    let reader = new FileReader();
+    reader.addEventListener('load', e => {
+      let ind = parseInt(el.dataset.activeAccount);
+      accounts[ind].props.image = e.target.result;
+      update(accounts[ind]);
+    });
+    reader.readAsDataURL(el.files[0]);
+  }
 
   return (
     <Accordion square defaultExpanded className="accordion">
+      <input type="file" id="file_picker" style={{display:'none',visibility:'hidden'}} onChange={read_file} />
+
       <AccordionSummary className="accordion-summary" expandIcon={<ExpandMore />}>
         <Typography variant="h6" className="fs-13">{name}</Typography>
         <Typography variant="h6" className="fs-13">{format_money(accounts.reduce((prev, next) => {return {balance: prev.balance+next.balance}}, {balance:0}).balance, true)}</Typography>
@@ -858,11 +876,7 @@ function AccountsAccordion({ name, accounts }){
             accounts.map((account, ind) => {
               return (<div key={ind}>
                 <div className="account">
-                  {
-                    (account.name.indexOf('Generic') === -1 ? (
-                      <img src={account.props.image} width={96} height={60} className="account-image" />
-                    ) : (<></>))
-                  }
+                  <img src={account.props.image || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='} width={96} height={60} className="account-image" onClick={() => { document.getElementById('file_picker').dataset.activeAccount = ind; document.getElementById('file_picker').click(); }} />
                   <div className="account-left flex-grow ml-10">
                     <Typography variant="h6" className="fs-11">{account.issuer === 'Other' ? account.name : account.issuer}</Typography>
                     <Typography variant="subtitle1" className="fs-9">{account.issuer === 'Other' ? name + ' Account' : account.name}</Typography>
@@ -1056,8 +1070,17 @@ function LeftbarWrapper({ noClasses, children }){
   return (<>{children}</>);
 }
 
-function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
+function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses, setAccounts }){
   if(!visible) return (<></>);
+
+  function update_account(acc){
+    let cpy = accounts.slice();
+    cpy.forEach(el => {
+      if(el.id === acc.id) el = acc;
+    });
+    setAccounts(cpy);
+  }
+
   return (
     <LeftbarWrapper noClasses={noClasses}>
       <div className={noClasses ? "" : "sidebar sidebar-left"}>
@@ -1079,17 +1102,17 @@ function Leftbar({ accounts, summary, openAccountDialog, visible, noClasses }){
           <LinearProgress variant="determinate" value={Math.abs(100*(summary.liabilities / ((summary.assets-summary.liabilities)||1)))} color="secondary" />
         </div>
         <br />
-        <AccountsAccordion name="Cash" accounts={accounts.filter(acc => (acc.type === 'Checking' || acc.type === 'Savings'))} />
-        <AccountsAccordion name="Credit" accounts={accounts.filter(acc => (acc.type === 'Credit Card'))} />
-        <AccountsAccordion name="Investment" accounts={accounts.filter(acc => (acc.type === 'Investment'))} />
-        <AccountsAccordion name="Loan" accounts={accounts.filter(acc => (acc.type === 'Loan'))} />
-        <AccountsAccordion name="Other" accounts={accounts.filter(acc => (acc.type === 'Other'))} />
+        <AccountsAccordion name="Cash" accounts={accounts.filter(acc => (acc.type === 'Checking' || acc.type === 'Savings'))} update={update_account} />
+        <AccountsAccordion name="Credit" accounts={accounts.filter(acc => (acc.type === 'Credit Card'))} update={update_account} />
+        <AccountsAccordion name="Investment" accounts={accounts.filter(acc => (acc.type === 'Investment'))} update={update_account} />
+        <AccountsAccordion name="Loan" accounts={accounts.filter(acc => (acc.type === 'Loan'))} update={update_account} />
+        <AccountsAccordion name="Other" accounts={accounts.filter(acc => (acc.type === 'Other'))} update={update_account} />
       </div>
     </LeftbarWrapper>
   );
 }
 
-function MainView({ summary, accounts, transactions, budget, view, setView, openTransactionDialog, setAccountDialog, removeTransaction, openBudgetDialog, removeBudgetItem, setHover }){
+function MainView({ summary, accounts, transactions, budget, view, setView, openTransactionDialog, setAccountDialog, removeTransaction, openBudgetDialog, removeBudgetItem, setHover, setAccounts }){
   const [spendingTimescale, setSpendingTimescale] = useState(0);
 
   const spendingData = [
@@ -1172,7 +1195,7 @@ function MainView({ summary, accounts, transactions, budget, view, setView, open
       <View number={0} view={view}>
         <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
         <br />
-        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} />
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={true} noClasses={true} setAccounts={setAccounts} />
       </View>
       <View number={1} view={view}>
         <QuickActions view={view} setView={setView} accounts={accounts} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} />
@@ -1783,8 +1806,8 @@ export default function App(){
         container
         justifyContent="space-between"
       >
-        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= MOBILE_CUTOFF} />
-        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} budget={budget} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} openBudgetDialog={openBudgetDialog} removeBudgetItem={removeBudgetItem} setHover={setHover} />
+        <Leftbar accounts={accounts} summary={summary} openAccountDialog={() => setAccountDialog(true)} visible={window.innerWidth >= MOBILE_CUTOFF} setAccounts={setAccounts} />
+        <MainView view={view} summary={summary} accounts={accounts} transactions={transactions} budget={budget} setView={setView} openTransactionDialog={openTransactionDialog} setAccountDialog={setAccountDialog} removeTransaction={removeTransaction} openBudgetDialog={openBudgetDialog} removeBudgetItem={removeBudgetItem} setHover={setHover} setAccounts={setAccounts} />
         <Rightbar summary={summary} accounts={accounts} transactions={transactions} setAccountDialog={setAccountDialog} setHover={setHover} />
       </Grid>
     </ThemeProvider>

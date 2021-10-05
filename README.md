@@ -1,4 +1,4 @@
-![Money](https://github.com/Cubified/money/blob/main/public/logo180.png)
+![Money](https://github.com/Cubified/money/blob/main/public/logo.svg)
 
 # Money
 

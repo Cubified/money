@@ -197,6 +197,7 @@ text:not(.label) {
   background: white;
   margin-left: 0.5em;
   border-radius: 8px;
+  cursor: pointer;
 }
 
 .card-image {
